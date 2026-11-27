@@ -274,3 +274,27 @@ Manual entry is currently faster and more reliable for the target flow.
 ### Not done
 - Health Connect (Android) and HealthKit (iOS) export.
 - Accuracy against a reference device on elderly users.
+
+## 2026-11-27 - Help request: location on Google Maps, reason, time, grammatical gender
+
+### Change
+- Worker (migration `0003_help_details.sql`, `worker/src/arabic.ts`, `worker/src/help.ts`):
+  - `profiles.gender` (male/female/NULL), set at registration and by `PUT /v1/me`. Older builds that do not send it keep the stored value.
+  - Help messages follow the elder's gender (يحتاج/تحتاج، ضغط/ضغطت، اتصل به/بها) and the responder's gender (قادم/قادمة، في طريقه/طريقها). Unknown gender uses the masculine form.
+  - The alert body: the chosen reason, then the press time in the elder's zone («ضغطت زر المساعدة الساعة 2:15 م»), then «موقعها مرفق، اضغط «الخريطة»» when located.
+  - Location: `latitude`, `longitude`, `accuracy` with the request, or later through `POST /v1/help/:id/location`. If nobody has answered, the family is alerted again with the map (not stored twice). If answered, a quiet `help_location` message is sent.
+  - The push carries `map_url` (`https://www.google.com/maps/search/?api=1&query=lat,lng`). Coordinates go only to relatives; the elder gets `location_shared` only.
+- Android:
+  - «أنا: رجل / امرأة» in onboarding (required) and in «ملفي». Local database version 3.
+  - Help screen:
+    - Four quick reasons during the countdown (سقطت، أشعر بدوخة، ألم في الصدر، ضيق في التنفس). Tapping one sends immediately with it.
+    - Location: the last known location (up to 10 minutes old) is sent with the request, and a fresh fix follows when found. Sending is never delayed.
+    - The sent screen shows «وصل موقعك لعائلتك», a button to allow location, or a button to turn location on.
+  - Location permission row in Settings. Location is read only while the help screen is open, never in the background.
+  - Relatives: a «الخريطة» button on the urgent notification (next to «أنا قادم» and «اتصال»), and «موقعها على خرائط Google · بدقة 12 م تقريبًا» in the red card.
+  - Onboarding text corrected: the phone number and location reach the family only when help is requested.
+
+### Verification
+- Local end-to-end: new help details 27/27 (gender both ways, time in Riyadh, reason, map link, late location re-alert and quiet update, permissions, invalid coordinates, older-build profile update). Help regression 32/32 and alerts 30/30.
+- Production after deploy: sync 20/20, family 26/26. Test accounts removed; only the owner's account remains.
+- Not yet installed on the Samsung: it disconnected from the computer before installation.

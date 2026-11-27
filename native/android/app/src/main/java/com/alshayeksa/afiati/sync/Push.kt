@@ -16,6 +16,7 @@ import android.util.Log
 import com.alshayeksa.afiati.MainActivity
 import com.alshayeksa.afiati.R
 import com.alshayeksa.afiati.data.Db
+import com.alshayeksa.afiati.data.Gender
 import com.alshayeksa.afiati.data.PatientRepository
 import com.alshayeksa.afiati.data.SyncState
 import com.alshayeksa.afiati.reminders.Reminders
@@ -127,6 +128,20 @@ object Push {
                 )
             }
         }
+        // موقع الكبير: يفتح خرائط Google عند النقطة
+        if (type.startsWith("help")) {
+            data["map_url"]?.takeIf { it.startsWith("https://www.google.com/maps/") }?.let { url ->
+                builder.addAction(
+                    Notification.Action.Builder(
+                        null, "الخريطة",
+                        PendingIntent.getActivity(
+                            context, id + 3, Intent(Intent.ACTION_VIEW, Uri.parse(url)),
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                        ),
+                    ).build(),
+                )
+            }
+        }
         context.getSystemService(NotificationManager::class.java)?.notify(id, builder.build())
     }
 
@@ -145,7 +160,7 @@ class HelpActionReceiver : BroadcastReceiver() {
                 Db.init(context)
                 val help = FamilyApi.acknowledgeHelp(context, helpId)
                 if (help.acknowledgedBy != null && help.acknowledgedBy != PatientRepository.get()?.id) {
-                    (help.acknowledgedByName ?: "أحد أفراد العائلة") + " في طريقه إلى " + name
+                    (help.acknowledgedByName ?: "أحد أفراد العائلة") + Gender.pick(help.acknowledgedByGender, " في طريقه إلى ", " في طريقها إلى ") + name
                 } else {
                     "أبلغنا " + name + " أنك قادم"
                 }

@@ -25,7 +25,8 @@ class AfiatiDatabase(context: Context) : SQLiteOpenHelper(context, NAME, null, V
                 email TEXT,
                 phone_verified INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                gender TEXT
             )""",
             """CREATE TABLE medications_local (
                 id TEXT PRIMARY KEY NOT NULL,
@@ -90,11 +91,15 @@ class AfiatiDatabase(context: Context) : SQLiteOpenHelper(context, NAME, null, V
             db.execSQL(HeartRateRepository.TABLE_SQL)
             db.execSQL(HeartRateRepository.INDEX_SQL)
         }
+        if (oldVersion < 3) {
+            // 3: رجل أو امرأة، لصياغة رسائل المساعدة
+            db.execSQL("ALTER TABLE patients_local ADD COLUMN gender TEXT")
+        }
     }
 
     companion object {
         const val NAME = "afiati.db"
-        const val VERSION = 2
+        const val VERSION = 3
     }
 }
 

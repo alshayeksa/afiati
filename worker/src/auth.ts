@@ -4,6 +4,7 @@
 // and a device, then returns a token "<deviceId>.<secret>" exactly once. Only the
 // SHA-256 of the secret is stored. Every later request sends:
 //   Authorization: Bearer <deviceId>.<secret>
+import { parseGender } from './arabic';
 import { HttpError, nowIso, optionalText, readJson, requireText, requireUuid } from './http';
 
 export type AuthContext = { deviceId: string; profileId: string };
@@ -30,9 +31,9 @@ export async function register(request: Request, env: Env) {
 
   await env.DB.batch([
     env.DB.prepare(
-      `INSERT INTO profiles (id, full_name, phone, email, phone_verified, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 0, ?, ?)`,
-    ).bind(profileId, fullName, phone, email, now, now),
+      `INSERT INTO profiles (id, full_name, phone, email, gender, phone_verified, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
+    ).bind(profileId, fullName, phone, email, parseGender(body.gender), now, now),
     env.DB.prepare(
       `INSERT INTO devices (id, profile_id, secret_hash, platform, timezone, created_at, last_seen_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,

@@ -2,7 +2,13 @@
 // whatever privacy level they were given. One relative answers "I'm coming", and the elder and
 // the rest of the family are told. Unanswered requests are pushed again every 2 minutes, 5 times
 // at most (the scheduled handler).
+//
+// The message says when the button was pressed (in the elder's time zone), the reason the elder
+// picked, and the elder's location on Google Maps when the phone could get it. Verbs follow the
+// elder's gender ("يحتاج" / "تحتاج"). The location may arrive a few seconds after the alert
+// (POST /v1/help/:id/location); the family is then alerted again with the map.
 import type { AuthContext } from './auth';
+import { clock, g, mapUrl, parseGender, type Gender } from './arabic';
 import { HttpError, nowIso, optionalText, readJson } from './http';
 import { notifyUser, type Waiter } from './push';
 import { enforceRateLimit } from './rateLimit';
@@ -23,6 +29,8 @@ type HelpRow = {
   message: string | null;
   latitude: number | null;
   longitude: number | null;
+  location_accuracy: number | null;
+  location_at: string | null;
   acknowledged_by: string | null;
   acknowledged_at: string | null;
   resolved_at: string | null;
@@ -30,6 +38,8 @@ type HelpRow = {
   last_notified_at: string;
   created_at: string;
 };
+
+type Person = { full_name: string; phone: string; gender: Gender };
 
 const activeSince = () => new Date(Date.now() - ACTIVE_FOR_MS).toISOString();
 
@@ -43,56 +53,105 @@ async function followers(env: Env, patientId: string) {
   return results;
 }
 
-async function profile(env: Env, id: string) {
-  return env.DB.prepare('SELECT full_name, phone FROM profiles WHERE id = ?').bind(id).first<{ full_name: string; phone: string }>();
+async function profile(env: Env, id: string): Promise<Person | null> {
+  const row = await env.DB.prepare('SELECT full_name, phone, gender FROM profiles WHERE id = ?')
+    .bind(id)
+    .first<{ full_name: string; phone: string; gender: string | null }>();
+  return row ? { ...row, gender: parseGender(row.gender) } : null;
 }
 
-/** What the app shows. The phone number goes only to approved family, so they can call. */
+async function zoneOf(env: Env, profileId: string) {
+  const row = await env.DB.prepare(
+    'SELECT timezone FROM devices WHERE profile_id = ? AND revoked_at IS NULL AND timezone IS NOT NULL ORDER BY last_seen_at DESC LIMIT 1',
+  )
+    .bind(profileId)
+    .first<{ timezone: string }>();
+  return row?.timezone ?? null;
+}
+
+const hasLocation = (row: HelpRow) => row.latitude !== null && row.longitude !== null;
+
+/** What the app shows. The phone number and location go only to approved family. */
 async function toApi(env: Env, row: HelpRow, forCaregiver: boolean) {
   const patient = await profile(env, row.patient_id);
   const responder = row.acknowledged_by ? await profile(env, row.acknowledged_by) : null;
+  const located = forCaregiver && hasLocation(row);
   return {
     id: row.id,
     patient_id: row.patient_id,
     patient_name: patient?.full_name ?? '',
+    patient_gender: patient?.gender ?? null,
     patient_phone: forCaregiver ? patient?.phone ?? null : null,
     status: row.status,
     message: row.message,
-    latitude: forCaregiver ? row.latitude : null,
-    longitude: forCaregiver ? row.longitude : null,
+    latitude: located ? row.latitude : null,
+    longitude: located ? row.longitude : null,
+    location_accuracy: located ? row.location_accuracy : null,
+    map_url: located ? mapUrl(row.latitude!, row.longitude!) : null,
+    // The elder only needs to know the location was shared.
+    location_shared: hasLocation(row),
     acknowledged_by: row.acknowledged_by,
     acknowledged_by_name: responder?.full_name ?? null,
+    acknowledged_by_gender: responder?.gender ?? null,
     acknowledged_at: row.acknowledged_at,
     resolved_at: row.resolved_at,
     created_at: row.created_at,
   };
 }
 
-function alert(patientName: string, row: HelpRow, phone: string | null, repeat: boolean) {
-  return {
-    type: 'help_request',
-    title: repeat ? `تذكير عاجل: ${patientName} ما زال يحتاج مساعدة` : `${patientName} يحتاج مساعدة`,
-    body: row.message || 'ضغط زر المساعدة في عافيتي. اتصل به أو اضغط «أنا قادم».',
-    data: { help_id: row.id, patient_id: row.patient_id, patient_name: patientName, phone: phone ?? '' },
-    channelId: HELP_CHANNEL,
-    priority: 'high' as const,
+/** The urgent alert to relatives. Exported for tests of the wording. */
+export function helpAlert(patient: { name: string; gender: Gender; phone: string | null }, row: HelpRow, zone: string | null, repeat: boolean) {
+  const { name, gender } = patient;
+  const needs = g(gender, 'يحتاج', 'تحتاج');
+  const title = repeat
+    ? `تذكير عاجل: ${name} ${g(gender, 'ما زال', 'ما زالت')} ${needs} مساعدة`
+    : `${name} ${needs} مساعدة`;
+  const parts: string[] = [];
+  if (row.message) parts.push(`«${row.message}».`);
+  parts.push(`${g(gender, 'ضغط', 'ضغطت')} زر المساعدة الساعة ${clock(row.created_at, zone)}.`);
+  if (hasLocation(row)) parts.push(`${g(gender, 'موقعه', 'موقعها')} مرفق، اضغط «الخريطة».`);
+  parts.push(`${g(gender, 'اتصل به', 'اتصل بها')} أو اضغط «أنا قادم».`);
+  const data: Record<string, unknown> = {
+    help_id: row.id,
+    patient_id: row.patient_id,
+    patient_name: name,
+    patient_gender: gender ?? '',
+    phone: patient.phone ?? '',
   };
+  if (hasLocation(row)) {
+    data.latitude = row.latitude;
+    data.longitude = row.longitude;
+    data.map_url = mapUrl(row.latitude!, row.longitude!);
+  }
+  return { type: 'help_request', title, body: parts.join(' '), data, channelId: HELP_CHANNEL, priority: 'high' as const };
 }
 
-async function pushToFamily(env: Env, row: HelpRow, waitUntil: Waiter, repeat: boolean) {
+async function pushToFamily(env: Env, row: HelpRow, waitUntil: Waiter, repeat: boolean, log = !repeat) {
   const patient = await profile(env, row.patient_id);
   const family = await followers(env, row.patient_id);
-  const message = alert(patient?.full_name ?? 'أحد أفراد عائلتك', row, patient?.phone ?? null, repeat);
+  const message = helpAlert(
+    { name: patient?.full_name ?? 'أحد أفراد عائلتك', gender: patient?.gender ?? null, phone: patient?.phone ?? null },
+    row, await zoneOf(env, row.patient_id), repeat,
+  );
   // Repeated alerts are pushed again but not stored again, so the notifications list stays readable.
-  for (const member of family) await notifyUser(env, member.id, message, waitUntil, { log: !repeat });
+  for (const member of family) await notifyUser(env, member.id, message, waitUntil, { log });
   return family.length;
+}
+
+type Location = { latitude: number; longitude: number; accuracy: number | null; at: string } | null;
+
+function readLocation(body: Record<string, unknown>): Location {
+  const { latitude, longitude } = body;
+  if (typeof latitude !== 'number' || typeof longitude !== 'number') return null;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
+  const accuracy = typeof body.accuracy === 'number' && Number.isFinite(body.accuracy) && body.accuracy >= 0 ? Math.min(body.accuracy, 100000) : null;
+  return { latitude, longitude, accuracy, at: nowIso() };
 }
 
 export async function requestHelp(request: Request, env: Env, auth: AuthContext, waitUntil: Waiter) {
   const body = await readJson(request).catch(() => ({}) as Record<string, unknown>);
   const message = optionalText(body.message, 'message', 300);
-  const latitude = typeof body.latitude === 'number' && Math.abs(body.latitude) <= 90 ? body.latitude : null;
-  const longitude = typeof body.longitude === 'number' && Math.abs(body.longitude) <= 180 ? body.longitude : null;
+  const location = readLocation(body);
   await enforceRateLimit(env, `help:${auth.profileId}`, 10, 60 * 60, 'too many help requests');
 
   // Pressing again while a request is still open re-alerts the family instead of making a second one.
@@ -104,30 +163,63 @@ export async function requestHelp(request: Request, env: Env, auth: AuthContext,
     .first<HelpRow>();
 
   const now = nowIso();
-  let row: HelpRow;
+  let id: string;
   if (existing) {
+    id = existing.id;
     await env.DB.prepare(
       `UPDATE help_requests SET status = 'open', acknowledged_by = NULL, acknowledged_at = NULL,
          message = COALESCE(?, message), latitude = COALESCE(?, latitude), longitude = COALESCE(?, longitude),
-         notify_count = 1, last_notified_at = ? WHERE id = ?`,
+         location_accuracy = CASE WHEN ? IS NULL THEN location_accuracy ELSE ? END,
+         location_at = COALESCE(?, location_at), notify_count = 1, last_notified_at = ? WHERE id = ?`,
     )
-      .bind(message, latitude, longitude, now, existing.id)
+      .bind(message, location?.latitude ?? null, location?.longitude ?? null, location?.latitude ?? null, location?.accuracy ?? null,
+        location?.at ?? null, now, id)
       .run();
-    row = (await env.DB.prepare('SELECT * FROM help_requests WHERE id = ?').bind(existing.id).first<HelpRow>())!;
   } else {
-    row = {
-      id: crypto.randomUUID(), patient_id: auth.profileId, status: 'open', message, latitude, longitude,
-      acknowledged_by: null, acknowledged_at: null, resolved_at: null, notify_count: 1, last_notified_at: now, created_at: now,
-    };
+    id = crypto.randomUUID();
     await env.DB.prepare(
-      `INSERT INTO help_requests (id, patient_id, status, message, latitude, longitude, notify_count, last_notified_at, created_at)
-       VALUES (?, ?, 'open', ?, ?, ?, 1, ?, ?)`,
+      `INSERT INTO help_requests (id, patient_id, status, message, latitude, longitude, location_accuracy, location_at, notify_count, last_notified_at, created_at)
+       VALUES (?, ?, 'open', ?, ?, ?, ?, ?, 1, ?, ?)`,
     )
-      .bind(row.id, row.patient_id, message, latitude, longitude, now, now)
+      .bind(id, auth.profileId, message, location?.latitude ?? null, location?.longitude ?? null, location?.accuracy ?? null, location?.at ?? null, now, now)
       .run();
   }
+  const row = await load(env, id);
   const notified = await pushToFamily(env, row, waitUntil, false);
   return { help: await toApi(env, row, false), notified };
+}
+
+/**
+ * The elder's location, sent after the alert when the phone needed a few seconds to find it.
+ * Unanswered: the family is alerted again, now with the map. Answered: they get the map quietly.
+ */
+export async function updateHelpLocation(request: Request, env: Env, auth: AuthContext, id: string, waitUntil: Waiter) {
+  const row = await load(env, id);
+  if (row.patient_id !== auth.profileId) throw new HttpError(404, 'help_not_found');
+  const location = readLocation(await readJson(request));
+  if (!location) throw new HttpError(400, 'invalid_field', 'latitude and longitude are required');
+  if (row.status === 'resolved' || row.status === 'cancelled') return { help: await toApi(env, row, false) };
+
+  await env.DB.prepare('UPDATE help_requests SET latitude = ?, longitude = ?, location_accuracy = ?, location_at = ? WHERE id = ?')
+    .bind(location.latitude, location.longitude, location.accuracy, location.at, id)
+    .run();
+  const current = await load(env, id);
+  if (current.status === 'open') {
+    await pushToFamily(env, current, waitUntil, false, false);
+  } else {
+    const patient = await profile(env, row.patient_id);
+    const name = patient?.full_name ?? '';
+    for (const member of await followers(env, row.patient_id)) {
+      await notifyUser(env, member.id, {
+        type: 'help_location',
+        title: `موقع ${name}`,
+        body: `وصل موقع ${name} الآن. اضغط «الخريطة».`,
+        data: { help_id: id, patient_id: row.patient_id, latitude: location.latitude, longitude: location.longitude, map_url: mapUrl(location.latitude, location.longitude) },
+        channelId: 'family',
+      }, waitUntil, { log: false });
+    }
+  }
+  return { help: await toApi(env, current, false) };
 }
 
 async function load(env: Env, id: string) {
@@ -160,12 +252,15 @@ export async function acknowledgeHelp(env: Env, auth: AuthContext, id: string, w
     .run();
   const current = await load(env, id);
   if (updated.meta.changes === 1) {
-    const responder = (await profile(env, auth.profileId))?.full_name ?? 'أحد أفراد عائلتك';
-    const patientName = (await profile(env, row.patient_id))?.full_name ?? '';
+    const responder = await profile(env, auth.profileId);
+    const responderName = responder?.full_name ?? 'أحد أفراد عائلتك';
+    const rg = responder?.gender ?? null;
+    const patient = await profile(env, row.patient_id);
+    const pg = patient?.gender ?? null;
     await notifyUser(env, row.patient_id, {
       type: 'help_ack',
-      title: `${responder} قادم إليك`,
-      body: 'وصل طلبك. ابق في مكانك واطمئن.',
+      title: `${responderName} ${g(rg, 'قادم', 'قادمة')} إليك`,
+      body: `وصل طلبك. ${g(pg, 'ابق في مكانك واطمئن.', 'ابقي في مكانك واطمئني.')}`,
       data: { help_id: id },
       channelId: HELP_CHANNEL,
       priority: 'high',
@@ -174,8 +269,8 @@ export async function acknowledgeHelp(env: Env, auth: AuthContext, id: string, w
       if (member.id === auth.profileId) continue;
       await notifyUser(env, member.id, {
         type: 'help_update',
-        title: `${responder} استجاب`,
-        body: `${responder} في طريقه إلى ${patientName}.`,
+        title: `${responderName} ${g(rg, 'استجاب', 'استجابت')}`,
+        body: `${responderName} ${g(rg, 'في طريقه', 'في طريقها')} إلى ${patient?.full_name ?? ''}.`,
         data: { help_id: id, patient_id: row.patient_id },
         channelId: 'family',
       }, waitUntil);
@@ -192,12 +287,15 @@ export async function resolveHelp(env: Env, auth: AuthContext, id: string, waitU
   // Answered before anyone responded: a cancel (pressed by mistake). Otherwise resolved.
   const status = row.status === 'open' ? 'cancelled' : 'resolved';
   await env.DB.prepare('UPDATE help_requests SET status = ?, resolved_at = ? WHERE id = ?').bind(status, now, id).run();
-  const patientName = (await profile(env, row.patient_id))?.full_name ?? '';
+  const patient = await profile(env, row.patient_id);
+  const pg = patient?.gender ?? null;
   for (const member of await followers(env, row.patient_id)) {
     await notifyUser(env, member.id, {
       type: 'help_resolved',
-      title: `${patientName} بخير الآن`,
-      body: status === 'cancelled' ? 'ألغى طلب المساعدة وطمأنكم أنه بخير.' : 'أكّد أنه بخير. شكرًا لاستجابتكم.',
+      title: `${patient?.full_name ?? ''} بخير الآن`,
+      body: status === 'cancelled'
+        ? `${g(pg, 'ألغى طلب المساعدة وطمأنكم أنه بخير.', 'ألغت طلب المساعدة وطمأنتكم أنها بخير.')}`
+        : `${g(pg, 'أكّد أنه بخير.', 'أكّدت أنها بخير.')} شكرًا لاستجابتكم.`,
       data: { help_id: id, patient_id: row.patient_id },
       channelId: 'family',
     }, waitUntil);

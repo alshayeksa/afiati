@@ -17,14 +17,15 @@ object PatientRepository {
         email = c.strOrNull("email"),
         createdAt = c.str("created_at"),
         updatedAt = c.str("updated_at"),
+        gender = Gender.of(c.strOrNull("gender")),
     )
 
     fun get(): Patient? = Db.db.rawQuery("SELECT * FROM patients_local LIMIT 1", null).first(::fromCursor)
 
-    fun create(fullName: String, phone: String, email: String?): Patient {
+    fun create(fullName: String, phone: String, email: String?, gender: String?): Patient {
         get()?.let { return it }
         val now = Iso.now()
-        val patient = Patient(Ids.random(), null, fullName.trim(), phone.trim(), email?.trim()?.lowercase()?.ifEmpty { null }, now, now)
+        val patient = Patient(Ids.random(), null, fullName.trim(), phone.trim(), email?.trim()?.lowercase()?.ifEmpty { null }, now, now, Gender.of(gender))
         Db.db.insertOrThrow("patients_local", null, ContentValues().apply {
             put("id", patient.id)
             putNull("auth_user_id")
@@ -34,20 +35,22 @@ object PatientRepository {
             put("phone_verified", 0)
             put("created_at", now)
             put("updated_at", now)
+            put("gender", patient.gender)
         })
         return patient
     }
 
-    fun update(fullName: String, phone: String, email: String?): Patient {
+    fun update(fullName: String, phone: String, email: String?, gender: String?): Patient {
         val existing = get() ?: error("لا يوجد ملف شخصي لتحديثه.")
         val updated = existing.copy(
             fullName = fullName.trim(), phone = phone.trim(),
-            email = email?.trim()?.lowercase()?.ifEmpty { null }, updatedAt = Iso.now(),
+            email = email?.trim()?.lowercase()?.ifEmpty { null }, updatedAt = Iso.now(), gender = Gender.of(gender),
         )
         Db.db.update("patients_local", ContentValues().apply {
             put("full_name", updated.fullName)
             put("phone", updated.phone)
             put("email", updated.email)
+            put("gender", updated.gender)
             put("updated_at", updated.updatedAt)
         }, "id = ?", arrayOf(updated.id))
         return updated

@@ -34,6 +34,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.LocationOff
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Map
+import android.Manifest
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.alshayeksa.afiati.data.Gender
+import com.alshayeksa.afiati.sync.HelpLocation
+import com.alshayeksa.afiati.sync.HelpPoint
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.LocalHospital
@@ -105,7 +115,7 @@ fun HelpButton(onOpen: () -> Unit) {
                     Text("اضغط هنا ليصل تنبيه عاجل لعائلتك", style = tajawal(15, color = Brand.secondaryText))
                 }
                 active.answered -> {
-                    Text("${active.acknowledgedByName ?: "أحد أفراد عائلتك"} قادم إليك", style = tajawal(20, FontWeight.Bold))
+                    Text("${active.acknowledgedByName ?: "أحد أفراد عائلتك"} ${Gender.pick(active.acknowledgedByGender, "قادم", "قادمة")} إليك", style = tajawal(20, FontWeight.Bold))
                     Text("اضغط إذا صرت بخير", style = tajawal(15, color = Brand.secondaryText))
                 }
                 else -> {
@@ -118,6 +128,24 @@ fun HelpButton(onOpen: () -> Unit) {
 }
 
 private enum class Phase { COUNTDOWN, SENDING, SENT, FAILED }
+
+/** أسباب جاهزة يختارها الكبير بضغطة بدل الكتابة */
+private val HELP_REASONS = listOf("سقطت", "أشعر بدوخة", "ألم في الصدر", "ضيق في التنفس")
+
+/** حالة الموقع في شاشة «وصل التنبيه» */
+@Composable
+private fun LocationStatus(shared: Boolean, granted: Boolean, enabled: Boolean, onAllow: () -> Unit, onSettings: () -> Unit) {
+    when {
+        shared -> Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.LocationOn, null, tint = Brand.mint, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("وصل موقعك لعائلتك على الخريطة", style = tajawal(17, FontWeight.Medium, Brand.mint))
+        }
+        !granted -> GlassButton("أرسل موقعي لعائلتك", icon = Icons.Filled.LocationOn, onClick = onAllow)
+        !enabled -> GlassButton("الموقع متوقف في جوالك · اضغط لتشغيله", icon = Icons.Filled.LocationOff, color = Brand.warning, onClick = onSettings)
+        else -> Text("جارٍ تحديد موقعك…", style = tajawal(16, color = Brand.secondaryText))
+    }
+}
 
 /**
  * شاشة طلب المساعدة للكبير: عدّ تنازلي 5 ثوانٍ يمكن إلغاؤه (للضغط الخاطئ)، ثم يصل التنبيه للعائلة.
@@ -133,8 +161,36 @@ fun HelpScreen(onClose: () -> Unit) {
     var notified by remember { mutableIntStateOf(-1) }
     var attempt by remember { mutableIntStateOf(0) }
     var resolving by remember { mutableStateOf(false) }
+    var reason by remember { mutableStateOf<String?>(null) }
+    // الموقع: آخر موقع معروف فورًا، ثم موقع جديد. لا يؤخر إرسال الطلب أبدًا
+    var known by remember { mutableStateOf(HelpLocation.lastKnown(context)) }
+    var fresh by remember { mutableStateOf<HelpPoint?>(null) }
+    var sentWith by remember { mutableStateOf<HelpPoint?>(null) }
+    var freshSent by remember { mutableStateOf(false) }
+    var locating by remember { mutableIntStateOf(0) }
     val help = AppModel.myHelp
     BackHandler(onBack = onClose)
+
+    LaunchedEffect(locating) {
+        if (!HelpLocation.granted(context)) return@LaunchedEffect
+        if (known == null) known = HelpLocation.lastKnown(context)
+        fresh = HelpLocation.current(context)
+    }
+    // وصل موقع أدق بعد الإرسال، أو لم يُرسل موقع أصلًا: نرسله الآن
+    LaunchedEffect(fresh, help?.id) {
+        val point = fresh ?: return@LaunchedEffect
+        val id = help?.id ?: return@LaunchedEffect
+        if (freshSent || phase != Phase.SENT) return@LaunchedEffect
+        val previous = sentWith
+        val worthIt = previous == null && help.locationShared.not() ||
+            (previous != null && (previous.accuracy ?: 9999f) > 200f && (point.accuracy ?: 9999f) < (previous.accuracy ?: 9999f) / 2)
+        if (!worthIt) return@LaunchedEffect
+        freshSent = true
+        AppModel.sendHelpLocation(id, point).onSuccess { sentWith = point }.onFailure { freshSent = false }
+    }
+    val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        if (result.values.any { it }) locating++
+    }
 
     LaunchedEffect(phase, attempt) {
         when (phase) {
@@ -146,8 +202,9 @@ fun HelpScreen(onClose: () -> Unit) {
                 phase = Phase.SENDING
             }
             Phase.SENDING -> {
-                AppModel.sendHelp()
-                    .onSuccess { notified = it.notified; phase = Phase.SENT }
+                val point = fresh ?: known
+                AppModel.sendHelp(reason, point)
+                    .onSuccess { notified = it.notified; sentWith = point; phase = Phase.SENT }
                     .onFailure { error = it.message; phase = Phase.FAILED }
             }
             Phase.SENT -> while (true) {
@@ -173,6 +230,14 @@ fun HelpScreen(onClose: () -> Unit) {
                     Text("خلال ثوانٍ. إن ضغطت بالخطأ اضغط «إلغاء».", style = tajawal(18, color = Brand.secondaryText), textAlign = TextAlign.Center)
                     Countdown(seconds)
                     CallButton("أرسل الآن", Icons.Filled.Sos, Red) { seconds = 0; phase = Phase.SENDING }
+                    Text("أو اختر ما حدث، ونرسله فورًا:", style = tajawal(17, color = Brand.secondaryText))
+                    HELP_REASONS.chunked(2).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            row.forEach { item ->
+                                Chip(item, false, Modifier.weight(1f)) { reason = item; seconds = 0; phase = Phase.SENDING }
+                            }
+                        }
+                    }
                     GlassButton("إلغاء، أنا بخير", color = Brand.text) { onClose() }
                 }
                 Phase.SENDING -> {
@@ -183,7 +248,7 @@ fun HelpScreen(onClose: () -> Unit) {
                     val answered = help?.answered == true
                     Pulse(if (answered) Icons.Filled.DirectionsRun else Icons.Filled.Check, calm = answered)
                     Text(
-                        if (answered) "${help?.acknowledgedByName ?: "أحد أفراد عائلتك"} قادم إليك" else "وصل التنبيه إلى عائلتك",
+                        if (answered) "${help?.acknowledgedByName ?: "أحد أفراد عائلتك"} ${Gender.pick(help?.acknowledgedByGender, "قادم", "قادمة")} إليك" else "وصل التنبيه إلى عائلتك",
                         style = tajawal(28, FontWeight.Bold), textAlign = TextAlign.Center,
                     )
                     Text(
@@ -193,6 +258,13 @@ fun HelpScreen(onClose: () -> Unit) {
                             else -> "ننتظر ردّهم. سنعيد تنبيههم كل دقيقتين حتى يرد أحدهم."
                         },
                         style = tajawal(18, color = if (notified == 0 && !answered) Brand.warning else Brand.secondaryText), textAlign = TextAlign.Center,
+                    )
+                    LocationStatus(
+                        shared = sentWith != null || help?.locationShared == true,
+                        granted = HelpLocation.granted(context),
+                        enabled = HelpLocation.enabled(context),
+                        onAllow = { askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
+                        onSettings = { runCatching { context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }; locating++ },
                     )
                 }
                 Phase.FAILED -> {
@@ -286,14 +358,26 @@ fun FamilyHelpCard(help: HelpRequest) {
             Icon(Icons.Filled.Sos, null, tint = Red, modifier = Modifier.size(32.dp))
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text("${help.patientName} يحتاج مساعدة", style = tajawal(22, FontWeight.Bold))
+                Text("${help.patientName} ${Gender.pick(help.patientGender, "يحتاج", "تحتاج")} مساعدة", style = tajawal(22, FontWeight.Bold))
                 Text(Format.relative(help.createdAt), style = tajawal(15, color = Brand.secondaryText))
             }
         }
         help.message?.let { Text("«$it»", style = tajawal(18)) }
         if (answered) {
             val me = help.acknowledgedBy != null && help.acknowledgedBy == AppModel.patient?.id
-            Text(if (me) "أنت في طريقك إليه" else "${help.acknowledgedByName ?: "أحد أفراد العائلة"} في طريقه إليه", style = tajawal(17, FontWeight.Medium, Brand.glow))
+            val toThem = Gender.pick(help.patientGender, "إليه", "إليها")
+            Text(
+                if (me) "أنت في طريقك $toThem"
+                else "${help.acknowledgedByName ?: "أحد أفراد العائلة"} ${Gender.pick(help.acknowledgedByGender, "في طريقه", "في طريقها")} $toThem",
+                style = tajawal(17, FontWeight.Medium, Brand.glow),
+            )
+        }
+        help.mapUrl?.let { url ->
+            GlassButton(
+                Gender.pick(help.patientGender, "موقعه على خرائط Google", "موقعها على خرائط Google") +
+                    (help.accuracy?.let { " · بدقة ${it.toInt().coerceAtLeast(1)} م تقريبًا" } ?: ""),
+                icon = Icons.Filled.Map,
+            ) { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             help.patientPhone?.takeIf { it.isNotBlank() }?.let { phone ->

@@ -2,6 +2,7 @@ package com.alshayeksa.afiati.sync
 
 import android.content.Context
 import com.alshayeksa.afiati.data.DoseLog
+import com.alshayeksa.afiati.data.Gender
 import com.alshayeksa.afiati.data.Iso
 import com.alshayeksa.afiati.data.Json
 import com.alshayeksa.afiati.data.nullableString
@@ -52,10 +53,19 @@ data class HelpRequest(
     val patientName: String,
     /** رقم الكبير، يصل لعائلته فقط ليتصلوا به */
     val patientPhone: String?,
+    val patientGender: String?,
     val status: String,
     val message: String?,
     val acknowledgedBy: String?,
     val acknowledgedByName: String?,
+    val acknowledgedByGender: String?,
+    /** للعائلة فقط: موقع الكبير ورابطه على خرائط Google */
+    val latitude: Double?,
+    val longitude: Double?,
+    val accuracy: Double?,
+    val mapUrl: String?,
+    /** للكبير: هل وصل موقعه لعائلته */
+    val locationShared: Boolean,
     val createdAt: String,
 ) {
     val answered get() = status == "acknowledged"
@@ -154,16 +164,30 @@ object FamilyApi {
         patientId = o.getString("patient_id"),
         patientName = o.optString("patient_name"),
         patientPhone = o.nullableString("patient_phone"),
+        patientGender = Gender.of(o.nullableString("patient_gender")),
         status = o.optString("status", "open"),
         message = o.nullableString("message"),
         acknowledgedBy = o.nullableString("acknowledged_by"),
         acknowledgedByName = o.nullableString("acknowledged_by_name"),
+        acknowledgedByGender = Gender.of(o.nullableString("acknowledged_by_gender")),
+        latitude = if (o.isNull("latitude")) null else o.optDouble("latitude").takeIf { !it.isNaN() },
+        longitude = if (o.isNull("longitude")) null else o.optDouble("longitude").takeIf { !it.isNaN() },
+        accuracy = if (o.isNull("location_accuracy")) null else o.optDouble("location_accuracy").takeIf { !it.isNaN() },
+        mapUrl = o.nullableString("map_url"),
+        locationShared = o.optBoolean("location_shared", false),
         createdAt = o.optString("created_at"),
     )
 
-    suspend fun requestHelp(context: Context, message: String? = null): HelpSent {
+    private fun JSONObject.putPoint(point: HelpPoint?): JSONObject {
+        if (point == null) return this
+        put("latitude", point.latitude).put("longitude", point.longitude)
+        point.accuracy?.let { put("accuracy", it.toDouble()) }
+        return this
+    }
+
+    suspend fun requestHelp(context: Context, message: String? = null, point: HelpPoint? = null): HelpSent {
         val o = call(
-            context, "/v1/help", "POST", JSONObject().put("message", message ?: JSONObject.NULL),
+            context, "/v1/help", "POST", JSONObject().put("message", message ?: JSONObject.NULL).putPoint(point),
             "أرسلت طلبات مساعدة كثيرة. اتصل بعائلتك أو بالإسعاف مباشرة.",
         )
         return HelpSent(help(o.getJSONObject("help")), o.optInt("notified"))
@@ -171,6 +195,10 @@ object FamilyApi {
 
     suspend fun acknowledgeHelp(context: Context, id: String): HelpRequest =
         help(call(context, "/v1/help/$id/acknowledge", "POST").getJSONObject("help"))
+
+    /** الموقع إن وصل بعد إرسال الطلب */
+    suspend fun sendHelpLocation(context: Context, id: String, point: HelpPoint): HelpRequest =
+        help(call(context, "/v1/help/$id/location", "POST", JSONObject().putPoint(point)).getJSONObject("help"))
 
     suspend fun resolveHelp(context: Context, id: String): HelpRequest =
         help(call(context, "/v1/help/$id/resolve", "POST").getJSONObject("help"))

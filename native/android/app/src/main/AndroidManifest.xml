@@ -10,6 +10,10 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- قياس النبض: الكاميرا والفلاش، ويعمل التطبيق على الأجهزة التي لا تملكهما -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- موقع الكبير يُرسل مع طلب المساعدة فقط، وهو في شاشة المساعدة -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
 

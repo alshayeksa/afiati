@@ -48,6 +48,7 @@ fun OnboardingScreen() {
     var name by rememberSaveable { mutableStateOf("") }
     var phone by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
+    var gender by rememberSaveable { mutableStateOf<String?>(null) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var saving by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = page == 1) { page = 0 }
@@ -81,11 +82,13 @@ fun OnboardingScreen() {
                     GlassField(name, { name = it; error = null }, "الاسم", style = tajawal(21), keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.Words))
                     FieldLabel("رقم جوالك")
                     GlassField(phone, { phone = it; error = null }, "05xxxxxxxx", style = tajawal(21), keyboard = KeyboardOptions(keyboardType = KeyboardType.Phone), ltr = true)
+                    FieldLabel("أنا")
+                    GenderPicker(gender) { gender = it; error = null }
                     FieldLabel("البريد الإلكتروني (اختياري)")
                     GlassField(email, { email = it; error = null }, "name@example.com", keyboard = KeyboardOptions(keyboardType = KeyboardType.Email), ltr = true)
                     error?.let { Text(it, style = tajawal(17, FontWeight.Medium, Brand.danger)) }
                     Text(
-                        "يظهر اسمك لمن توافق عليه من عائلتك فقط، ولا يظهر رقمك لأحد.",
+                        "يظهر اسمك لمن توافق عليه من عائلتك فقط، ويصلهم رقمك وموقعك فقط حين تطلب المساعدة.",
                         style = tajawal(15, color = Brand.secondaryText), modifier = Modifier.padding(horizontal = 4.dp),
                     )
                 }
@@ -96,10 +99,10 @@ fun OnboardingScreen() {
                 PrimaryButton("لنبدأ", icon = Icons.AutoMirrored.Filled.ArrowForward) { page = 1 }
             } else {
                 PrimaryButton(if (saving) "جارٍ الحفظ…" else "ابدأ استخدام عافيتي", icon = Icons.Filled.Check, enabled = !saving) {
-                    error = validateProfile(name, phone, email)
+                    error = validateProfile(name, phone, email) ?: if (gender == null) "اختر: رجل أو امرأة." else null
                     if (error == null) {
                         saving = true
-                        AppModel.createPatient(name, phone, email.ifBlank { null })
+                        AppModel.createPatient(name, phone, email.ifBlank { null }, gender)
                     }
                 }
             }

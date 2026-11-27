@@ -16,7 +16,9 @@ import com.alshayeksa.afiati.data.Patient
 import com.alshayeksa.afiati.data.PatientRepository
 import com.alshayeksa.afiati.data.Schedule
 import com.alshayeksa.afiati.data.SyncState
+import com.alshayeksa.afiati.data.Gender
 import com.alshayeksa.afiati.reminders.Reminders
+import com.alshayeksa.afiati.sync.HelpPoint
 import com.alshayeksa.afiati.sync.FamilyApi
 import com.alshayeksa.afiati.sync.FamilyOverview
 import com.alshayeksa.afiati.sync.HelpRequest
@@ -117,7 +119,11 @@ object AppModel {
         if (running) refreshHelp()
     }
 
-    suspend fun sendHelp(): Result<HelpSent> = familyCall { FamilyApi.requestHelp(it) }.onSuccess { myHelp = it.help }
+    suspend fun sendHelp(reason: String? = null, point: HelpPoint? = null): Result<HelpSent> =
+        familyCall { FamilyApi.requestHelp(it, reason, point) }.onSuccess { myHelp = it.help }
+
+    suspend fun sendHelpLocation(id: String, point: HelpPoint): Result<HelpRequest> =
+        familyCall { FamilyApi.sendHelpLocation(it, id, point) }.onSuccess { updated -> if (myHelp?.id == updated.id) myHelp = updated }
 
     fun resolveMyHelp(onDone: (String?) -> Unit = {}) {
         val help = myHelp ?: return onDone(null)
@@ -134,7 +140,7 @@ object AppModel {
                 .onSuccess { updated ->
                     familyHelp = familyHelp.map { if (it.id == updated.id) updated else it }
                     toast = if (updated.acknowledgedBy == patient?.id) "أبلغنا ${help.patientName} أنك قادم"
-                    else "${updated.acknowledgedByName ?: "أحد أفراد العائلة"} في طريقه إليه"
+                    else "${updated.acknowledgedByName ?: "أحد أفراد العائلة"} ${Gender.pick(updated.acknowledgedByGender, "في طريقه", "في طريقها")} ${Gender.pick(help.patientGender, "إليه", "إليها")}"
                 }
                 .onFailure { toast = it.message }
         }
@@ -254,18 +260,18 @@ object AppModel {
 
     // الملف الشخصي
 
-    fun createPatient(name: String, phone: String, email: String?) {
+    fun createPatient(name: String, phone: String, email: String?, gender: String?) {
         scope.launch {
-            withContext(Dispatchers.IO) { PatientRepository.create(name, phone, email) }
+            withContext(Dispatchers.IO) { PatientRepository.create(name, phone, email, gender) }
             reload()
             SyncJobService.schedulePeriodic(app)
             afterChange(sync = true)
         }
     }
 
-    fun updatePatient(name: String, phone: String, email: String?) {
+    fun updatePatient(name: String, phone: String, email: String?, gender: String?) {
         scope.launch {
-            withContext(Dispatchers.IO) { PatientRepository.update(name, phone, email) }
+            withContext(Dispatchers.IO) { PatientRepository.update(name, phone, email, gender) }
             reload()
             afterChange(sync = true, reminders = false)
             toast = "حُفظت بياناتك"

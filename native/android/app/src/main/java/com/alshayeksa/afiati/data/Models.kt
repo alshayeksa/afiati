@@ -9,7 +9,19 @@ data class Patient(
     val email: String?,
     val createdAt: String,
     val updatedAt: String,
+    /** "male" أو "female"، وnull حتى يختار. تُكتب به رسائل العائلة (يحتاج / تحتاج) */
+    val gender: String? = null,
 )
+
+object Gender {
+    const val MALE = "male"
+    const val FEMALE = "female"
+
+    fun of(value: String?) = if (value == MALE || value == FEMALE) value else null
+
+    /** الصيغة المذكرة أو المؤنثة؛ المذكرة إن لم يُختر */
+    fun pick(gender: String?, male: String, female: String) = if (gender == FEMALE) female else male
+}
 
 object RepeatType {
     const val DAILY = "daily"

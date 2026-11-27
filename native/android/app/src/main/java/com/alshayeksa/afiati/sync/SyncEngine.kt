@@ -82,6 +82,7 @@ object SyncEngine {
                     .put("full_name", local.fullName)
                     .put("phone", local.phone)
                     .put("email", local.email ?: JSONObject.NULL)
+                    .put("gender", local.gender ?: JSONObject.NULL)
                     .put("platform", "android"),
             )
         } catch (error: ApiException) {
@@ -99,7 +100,8 @@ object SyncEngine {
         if (SyncState.get(SyncState.PROFILE_VERSION) == patient.updatedAt) return
         Api.request(
             "/v1/me", "PUT",
-            JSONObject().put("full_name", patient.fullName).put("phone", patient.phone).put("email", patient.email ?: JSONObject.NULL),
+            JSONObject().put("full_name", patient.fullName).put("phone", patient.phone).put("email", patient.email ?: JSONObject.NULL)
+                .put("gender", patient.gender ?: JSONObject.NULL),
         )
         SyncState.set(SyncState.PROFILE_VERSION, patient.updatedAt)
     }

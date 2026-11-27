@@ -30,6 +30,11 @@ import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.alshayeksa.afiati.data.Gender
+import com.alshayeksa.afiati.sync.HelpLocation
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PersonAdd
@@ -64,6 +69,15 @@ import com.alshayeksa.afiati.reminders.Reminders
 import com.alshayeksa.afiati.sync.SyncStatus
 
 /** التحقق من بيانات الملف الشخصي. يعيد رسالة الخطأ أو null. */
+/** رجل أو امرأة: تُكتب به رسائل المساعدة لعائلتك (يحتاج / تحتاج) */
+@Composable
+fun GenderPicker(gender: String?, onChange: (String) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Chip("رجل", gender == Gender.MALE, Modifier.weight(1f)) { onChange(Gender.MALE) }
+        Chip("امرأة", gender == Gender.FEMALE, Modifier.weight(1f)) { onChange(Gender.FEMALE) }
+    }
+}
+
 fun validateProfile(name: String, phone: String, email: String): String? = when {
     name.trim().length < 2 -> "اكتب اسمك كما تحب أن يراه أهلك."
     phone.count(Char::isDigit) < 9 -> "أدخل رقم جوال صحيحًا."
@@ -78,8 +92,9 @@ fun ProfileSheet(onDismiss: () -> Unit) {
     var name by remember { mutableStateOf(patient.fullName) }
     var phone by remember { mutableStateOf(patient.phone) }
     var email by remember { mutableStateOf(patient.email.orEmpty()) }
+    var gender by remember { mutableStateOf(patient.gender) }
     var error by remember { mutableStateOf<String?>(null) }
-    val changed = name != patient.fullName || phone != patient.phone || email != patient.email.orEmpty()
+    val changed = name != patient.fullName || phone != patient.phone || email != patient.email.orEmpty() || gender != patient.gender
 
     AfiatiSheet("ملفي", onDismiss) {
         Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -92,13 +107,15 @@ fun ProfileSheet(onDismiss: () -> Unit) {
             GlassField(name, { name = it; error = null }, "الاسم")
             FieldLabel("رقم الجوال")
             GlassField(phone, { phone = it; error = null }, "05xxxxxxxx", keyboard = KeyboardOptions(keyboardType = KeyboardType.Phone), ltr = true)
+            FieldLabel("أنا")
+            GenderPicker(gender) { gender = it; error = null }
             FieldLabel("البريد الإلكتروني (اختياري)")
             GlassField(email, { email = it; error = null }, "name@example.com", keyboard = KeyboardOptions(keyboardType = KeyboardType.Email), ltr = true)
             error?.let { Text(it, style = tajawal(16, FontWeight.Medium, Brand.danger)) }
             PrimaryButton("حفظ التعديلات", Modifier.padding(top = 8.dp), icon = Icons.Filled.Save, enabled = changed) {
                 error = validateProfile(name, phone, email)
                 if (error == null) {
-                    AppModel.updatePatient(name, phone, email.ifBlank { null })
+                    AppModel.updatePatient(name, phone, email.ifBlank { null }, gender)
                     onDismiss()
                 }
             }
@@ -141,6 +158,16 @@ fun SettingsSheet(onDismiss: () -> Unit) {
                         context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")))
                     }
                 }
+            }
+
+            var locationAsked by remember { mutableIntStateOf(0) }
+            val locationAllowed = remember(tick, locationAsked) { HelpLocation.granted(context) }
+            val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { locationAsked++ }
+            PermissionRow(
+                Icons.Filled.LocationOn, "موقعي مع طلب المساعدة",
+                if (locationAllowed) "مسموح · يصل موقعك لعائلتك على خرائط Google" else "غير مسموح · اضغط للسماح", locationAllowed,
+            ) {
+                askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
             }
 
             FieldLabel("رقم للطوارئ", Modifier.padding(top = 10.dp))

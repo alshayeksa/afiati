@@ -1,7 +1,8 @@
 import { alertLowStock, alertMissedDoses } from './alerts';
 import { authenticate, register } from './auth';
 import { isFcmToken } from './fcm';
-import { acknowledgeHelp, activeHelp, escalateHelp, requestHelp, resolveHelp } from './help';
+import { parseGender } from './arabic';
+import { acknowledgeHelp, activeHelp, escalateHelp, requestHelp, resolveHelp, updateHelpLocation } from './help';
 import {
   createInvitation,
   joinFamily,
@@ -52,7 +53,7 @@ async function route(request: Request, env: Env, waitUntil: (promise: Promise<un
 
   if (method === 'GET' && pathname === '/v1/me') {
     const profile = await env.DB.prepare(
-      'SELECT id, full_name, phone, email, phone_verified, created_at, updated_at FROM profiles WHERE id = ?',
+      'SELECT id, full_name, phone, email, gender, phone_verified, created_at, updated_at FROM profiles WHERE id = ?',
     )
       .bind(auth.profileId)
       .first();
@@ -64,8 +65,12 @@ async function route(request: Request, env: Env, waitUntil: (promise: Promise<un
     const fullName = requireText(body.full_name, 'full_name', 100);
     const phone = requireText(body.phone, 'phone', 20);
     const email = optionalText(body.email, 'email', 200);
-    await env.DB.prepare('UPDATE profiles SET full_name = ?, phone = ?, email = ?, updated_at = ? WHERE id = ?')
-      .bind(fullName, phone, email, nowIso(), auth.profileId)
+    // Older app builds do not send gender: keep what is stored.
+    const genderSent = Object.prototype.hasOwnProperty.call(body, 'gender');
+    await env.DB.prepare(
+      'UPDATE profiles SET full_name = ?, phone = ?, email = ?, gender = CASE WHEN ? THEN ? ELSE gender END, updated_at = ? WHERE id = ?',
+    )
+      .bind(fullName, phone, email, genderSent ? 1 : 0, parseGender(body.gender), nowIso(), auth.profileId)
       .run();
     return json({ ok: true });
   }
@@ -102,10 +107,11 @@ async function route(request: Request, env: Env, waitUntil: (promise: Promise<un
 
   if (method === 'POST' && pathname === '/v1/help') return json(await requestHelp(request, env, auth, waitUntil), 201);
   if (method === 'GET' && pathname === '/v1/help/active') return json(await activeHelp(env, auth));
-  const helpRoute = /^\/v1\/help\/([^/]+)\/(acknowledge|resolve)$/.exec(pathname);
+  const helpRoute = /^\/v1\/help\/([^/]+)\/(acknowledge|resolve|location)$/.exec(pathname);
   if (helpRoute && method === 'POST') {
     const helpId = requireUuid(helpRoute[1], 'help id');
     if (helpRoute[2] === 'acknowledge') return json(await acknowledgeHelp(env, auth, helpId, waitUntil));
+    if (helpRoute[2] === 'location') return json(await updateHelpLocation(request, env, auth, helpId, waitUntil));
     return json(await resolveHelp(env, auth, helpId, waitUntil));
   }
 
