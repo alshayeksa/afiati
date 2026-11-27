@@ -105,8 +105,15 @@ fun HomeScreen() {
     val pendingOpen = AppModel.pendingOpen
     LaunchedEffect(pendingOpen) {
         when (pendingOpen) {
-            "family" -> { showAdd = false; openPatient = null; tab = Tab.FAMILY }
-            "notifications" -> { showAdd = false; openPatient = null; showNotifications = true }
+            "family" -> {
+                showAdd = false; openPatient = null; showProfile = false; showSettings = false; showNotifications = false; openMedication = null
+                tab = Tab.FAMILY
+                AppModel.familyFocus++
+            }
+            "notifications" -> {
+                showAdd = false; openPatient = null; showProfile = false; showSettings = false; openMedication = null
+                showNotifications = true
+            }
         }
         AppModel.pendingOpen = null
     }

@@ -91,6 +91,22 @@ fun FamilyScreen(header: @Composable () -> Unit, onOpenPatient: (FamilyLink) -> 
     var showJoin by rememberSaveable { mutableStateOf(false) }
     var showApproval by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { AppModel.refreshFamily() }
+    // فُتحت من إشعار طلب متابعة: نغلق النوافذ ونعرض الطلب حين يصل
+    val focus = AppModel.familyFocus
+    var awaitingRequest by remember { mutableStateOf(false) }
+    LaunchedEffect(focus) {
+        if (focus == 0) return@LaunchedEffect
+        showInvite = false; showJoin = false; following = false
+        awaitingRequest = true
+        AppModel.refreshFamily()
+    }
+    val pendingCount = AppModel.family?.pending?.size ?: 0
+    LaunchedEffect(pendingCount, awaitingRequest, AppModel.familyLoading) {
+        if (awaitingRequest && !AppModel.familyLoading && AppModel.family != null) {
+            if (pendingCount > 0) showApproval = true
+            awaitingRequest = false
+        }
+    }
     val family = AppModel.family
     val error = AppModel.familyError
 

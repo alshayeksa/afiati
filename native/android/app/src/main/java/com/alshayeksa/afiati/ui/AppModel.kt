@@ -82,6 +82,9 @@ object AppModel {
     /** فتح شاشة بعينها من إشعار: "family" أو "notifications" */
     var pendingOpen by mutableStateOf<String?>(null)
 
+    /** يزيد عند فتح العائلة من إشعار طلب متابعة: تُغلق نوافذها ويظهر الطلب */
+    var familyFocus by mutableStateOf(0)
+
     fun refreshNotificationsIfRunning() {
         if (::app.isInitialized && running && patient != null) refreshNotifications(quiet = true)
     }
@@ -153,6 +156,8 @@ object AppModel {
             if (patient != null) {
                 afterChange(sync = true)
                 refreshNotifications(quiet = true)
+                // طلب متابعة أو موافقة وصل والتطبيق في الخلفية
+                if (family != null) refreshFamily()
             }
         }
     }

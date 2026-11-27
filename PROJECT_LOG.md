@@ -1,5 +1,18 @@
 # Project Log
 
+## 2026-11-27 - Family push notifications (Firebase Cloud Messaging)
+
+### Change
+- Firebase project `afiati-89b21`. `native/android/app/google-services.json` and the service account key in `push-notification/` are kept out of git. The key is stored as the Worker secret `FCM_SERVICE_ACCOUNT`.
+- Worker (`worker/src/fcm.ts`): sends FCM HTTP v1 data messages at high priority. It signs the OAuth assertion with the service account key (RS256), caches the access token, and clears tokens that Google reports as gone. `PUT /v1/me/push-token` accepts FCM tokens as well as Expo tokens. Expo tokens still go to Expo Push.
+- Android: `PushService` shows family alerts on a new "تنبيهات العائلة" channel, and family reminders on the medication channel. The token is registered during sync and re-sent when Firebase rotates it. Tapping an "invite request" alert opens Family and shows the approval sheet; other alerts open the notifications sheet.
+
+### Verification
+- Local end-to-end against a mock Google server: 14/14 passed (assertion signature and scope, high priority, string data, channel, token reuse, stale token cleared).
+- Production sync 20/20 and family 26/26 after deploying.
+- Real Google OAuth accepted the service account key.
+- Samsung SM-A566B (Android 17): with the app in the background, a join request and a family reminder both arrived as phone notifications. Tapping the join request opened the approval sheet. Test data was then removed from the phone and the server.
+
 ## 2026-11-27 - Native Android app (Kotlin + Jetpack Compose)
 
 ### Why
@@ -26,7 +39,7 @@ The owner asked for real native apps (Kotlin for Android, Swift/SwiftUI for iOS)
 - Production D1 received the profile, device, medication and dose logs from the emulator.
 
 ### Known gaps
-- Push notifications: family alerts are stored and shown in the notifications sheet, but do not pop up on the phone. The Worker sends Expo push tokens only; the native app needs Firebase Cloud Messaging. This needs a Firebase project for Afiati and is planned with the help button.
+- Push notifications: family alerts did not pop up on the phone. *(Done: see the Firebase entry above.)*
 - iOS (Swift/SwiftUI) is not started yet.
 
 ## 2026-11-27 - Move backend to Cloudflare (step 3: family + notifications)
