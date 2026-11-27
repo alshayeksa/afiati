@@ -370,4 +370,6 @@ Manual entry is currently faster and more reliable for the target flow.
 ### Verification
 - GitHub Actions (macOS, Xcode 27): build succeeded, 16/16 unit tests (dose ids, ISO time, schedule, conflicts, reminder window, vital ranges, greetings, pulse algorithm), IPA produced.
 - Local worker with a mock APNs that verifies the ES256 token: 22/22.
-- Not yet: running on a real iPhone (needs TestFlight), and the worker deploy to production (awaiting approval).
+- TestFlight: signed with aps-environment production and uploaded ("UPLOAD SUCCEEDED with no errors").
+- Worker deployed to production (version fa13b8c2). Production regression: sync and family all passed. Test accounts removed.
+- Not yet: the APNS_* secrets on the worker, and a run on a real iPhone.
