@@ -1,0 +1,213 @@
+# يبني تطبيق «عافيتي» الأصلي للآيفون (Swift) على Mac من GitHub، لأن البناء يحتاج Xcode.
+# 1) اختبارات المنطق على المحاكي (معرّفات الجرعات، المواعيد، النبض...).
+# 2) أرشفة غير موقّعة للآيفون تُرفع كملف IPA، يُوقَّع ويُثبَّت من Windows بأداة مثل Sideloadly.
+# 3) TestFlight يدويًا فقط (Run workflow مع testflight)، بعد إنشاء التطبيق في App Store Connect.
+name: iOS build
+
+on:
+  push:
+    paths:
+      - "native/ios/**"
+      - ".github/workflows/ios.yml"
+  workflow_dispatch:
+    inputs:
+      testflight:
+        description: "Upload to TestFlight"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: xcode-27 # Xcode 27 و iOS 27 SDK، مثل تطبيق موجة
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: native/ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Unit tests on the simulator
+        run: |
+          set -o pipefail
+          udid=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; c=[x for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')]; print(c[-1]['udid'] if c else '')")
+          echo "simulator: $udid"
+          xcodebuild test -project Afiati.xcodeproj -scheme Afiati -destination "id=$udid" \
+            -configuration Debug CODE_SIGNING_ALLOWED=NO 2>&1 | tee build-test.log | xcbeautify --quiet
+
+      - name: Archive for iPhone (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project Afiati.xcodeproj -scheme Afiati \
+            -sdk iphoneos -destination 'generic/platform=iOS' -configuration Release \
+            -archivePath build/Afiati.xcarchive archive \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" 2>&1 | tee build-device.log | xcbeautify --quiet
+          mkdir Payload
+          cp -R build/Afiati.xcarchive/Products/Applications/Afiati.app Payload/
+          zip -qr Afiati-unsigned.ipa Payload
+
+      - name: Show compile errors
+        if: failure()
+        run: grep -h -E "error:|Test Case .* failed|XCTAssert" build-*.log | sort -u | head -80 || true
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Afiati-unsigned-ipa
+          path: native/ios/Afiati-unsigned.ipa
+          retention-days: 14
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs
+          path: native/ios/build-*.log
+          retention-days: 7
+
+  # يوقّع التطبيق ويرفعه إلى TestFlight. يدوي فقط.
+  # الأسرار: ASC_KEY_ID و ASC_ISSUER_ID و ASC_KEY_P8 (مفتاح App Store Connect API) و APPLE_TEAM_ID
+  testflight:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.testflight
+    runs-on: xcode-27
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: native/ios
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      BUNDLE_ID: ai.alshaye.afiati
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Write API key
+        run: |
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          key="$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          # اللصق من Windows قد يضيف فواصل أسطر CRLF أو مسافات؛ نعيد بناء ملف PEM سليم من المحتوى
+          body=$(printf "%s" "$ASC_KEY_P8" | sed -e "s/-----BEGIN PRIVATE KEY-----//" -e "s/-----END PRIVATE KEY-----//" | tr -d "[:space:]")
+          { echo "-----BEGIN PRIVATE KEY-----"; echo "$body" | fold -w 64; echo "-----END PRIVATE KEY-----"; } > "$key"
+          openssl pkey -in "$key" -noout && echo "key format: valid"
+          echo "ASC_KEY_FILE=$key" >> "$GITHUB_ENV"
+
+      # معرّف التطبيق بصلاحية الإشعارات، والتحقق من وجود التطبيق في App Store Connect
+      - name: Bundle ID, push capability and app record
+        id: app
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet pyjwt cryptography requests
+          "$RUNNER_TEMP/venv/bin/python" - <<'PY'
+          import os, time, jwt, requests
+          key = open(os.environ["ASC_KEY_FILE"]).read()
+          token = jwt.encode({"iss": os.environ["ASC_ISSUER_ID"], "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"},
+                             key, algorithm="ES256", headers={"kid": os.environ["ASC_KEY_ID"]})
+          api = "https://api.appstoreconnect.apple.com/v1"
+          headers = {"Authorization": "Bearer " + token}
+          bundle = os.environ["BUNDLE_ID"]
+          found = requests.get(api + "/bundleIds", params={"filter[identifier]": bundle}, headers=headers, timeout=30).json()
+          ids = [b["id"] for b in found.get("data", []) if b["attributes"]["identifier"] == bundle]
+          if not ids:
+              body = {"data": {"type": "bundleIds", "attributes": {"identifier": bundle, "name": "Afiati", "platform": "IOS"}}}
+              r = requests.post(api + "/bundleIds", json=body, headers=headers, timeout=30)
+              print("bundle id:", "registered" if r.status_code == 201 else f"error {r.status_code} {r.text[:300]}")
+              if r.status_code != 201:
+                  raise SystemExit(1)
+              ids = [r.json()["data"]["id"]]
+          else:
+              print("bundle id: already registered")
+          for capability in ("PUSH_NOTIFICATIONS", "TIME_SENSITIVE_NOTIFICATIONS"):
+              body = {"data": {"type": "bundleIdCapabilities", "attributes": {"capabilityType": capability},
+                               "relationships": {"bundleId": {"data": {"type": "bundleIds", "id": ids[0]}}}}}
+              r = requests.post(api + "/bundleIdCapabilities", json=body, headers=headers, timeout=30)
+              print(capability, "enabled" if r.status_code == 201 else "already enabled" if r.status_code == 409 else f"error {r.status_code} {r.text[:200]}")
+          apps = requests.get(api + "/apps", params={"filter[bundleId]": bundle}, headers=headers, timeout=30).json().get("data", [])
+          ready = any(a["attributes"]["bundleId"] == bundle for a in apps)
+          print("app record in App Store Connect:", "found" if ready else "missing")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"ready={'true' if ready else 'false'}\n")
+          PY
+
+      - name: App record missing
+        if: steps.app.outputs.ready != 'true'
+        run: |
+          echo "::error::Create the app in App Store Connect first: My Apps → + → New App → Bundle ID ai.alshaye.afiati, name عافيتي."
+          exit 1
+
+      - name: Archive
+        run: |
+          set -o pipefail
+          xcodebuild -project Afiati.xcodeproj -scheme Afiati \
+            -sdk iphoneos -destination 'generic/platform=iOS' -configuration Release \
+            -archivePath build/Afiati.xcarchive archive \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee build-archive.log | xcbeautify --quiet
+          # الأرشيف غير موقّع، فنوقّعه توقيعًا مؤقتًا يحمل صلاحيات التطبيق، ثم يعيد التصدير التوقيع بشهادة التوزيع
+          app="build/Afiati.xcarchive/Products/Applications/Afiati.app"
+          codesign --force --sign - --timestamp=none --entitlements Afiati/Afiati.entitlements "$app"
+
+      - name: Sign for distribution
+        run: |
+          set -o pipefail
+          cat > ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath build/Afiati.xcarchive \
+            -exportOptionsPlist ExportOptions.plist -exportPath build/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_FILE" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" 2>&1 | tee build-export.log | tail -30
+          ls -la build/export
+
+      - name: Verify push entitlement in the signed app
+        run: |
+          rm -rf verify && mkdir verify && unzip -q build/export/*.ipa -d verify
+          codesign -d --entitlements :- verify/Payload/Afiati.app 2>/dev/null > entitlements.plist
+          plutil -convert json -o entitlements.json entitlements.plist
+          python3 -c "import json; e=json.load(open('entitlements.json')); print('entitlement keys:', sorted(e)); print('aps-environment:', e.get('aps-environment')); raise SystemExit(0 if e.get('aps-environment') == 'production' else 1)"
+
+      - name: Upload to TestFlight
+        run: |
+          set -o pipefail
+          xcrun altool --upload-app -f build/export/*.ipa -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" 2>&1 | tee build-upload.log | tail -15
+
+      - name: Remove API key
+        if: always()
+        working-directory: .
+        run: rm -rf "$HOME/.appstoreconnect/private_keys" native/ios/entitlements.plist native/ios/entitlements.json
+
+      - name: Upload signing logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testflight-logs
+          path: native/ios/build-*.log
+          retention-days: 7

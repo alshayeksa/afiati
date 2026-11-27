@@ -1,5 +1,6 @@
 import { alertLowStock, alertMissedDoses } from './alerts';
 import { authenticate, register } from './auth';
+import { isApnsToken } from './apns';
 import { isFcmToken } from './fcm';
 import { parseGender } from './arabic';
 import { acknowledgeHelp, activeHelp, escalateHelp, requestHelp, resolveHelp, updateHelpLocation } from './help';
@@ -85,9 +86,9 @@ async function route(request: Request, env: Env, waitUntil: (promise: Promise<un
   if (method === 'PUT' && pathname === '/v1/me/push-token') {
     const body = await readJson(request);
     const token = body.push_token;
-    // Native Android sends an FCM token; the Expo app sends an Expo push token.
-    if (typeof token !== 'string' || !(/^(Exponent|Expo)PushToken\[.+\]$/.test(token) || isFcmToken(token))) {
-      throw new HttpError(400, 'invalid_field', 'push_token must be an FCM or Expo push token');
+    // Native Android sends an FCM token, native iOS an APNs token ("apns:<hex>"), the Expo app an Expo push token.
+    if (typeof token !== 'string' || !(/^(Exponent|Expo)PushToken\[.+\]$/.test(token) || isFcmToken(token) || isApnsToken(token))) {
+      throw new HttpError(400, 'invalid_field', 'push_token must be an FCM, APNs or Expo push token');
     }
     // A token belongs to one physical phone; move it if it was registered under another device.
     await env.DB.batch([

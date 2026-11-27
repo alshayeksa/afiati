@@ -1,0 +1,81 @@
+# مشروع Xcode لتطبيق «عافيتي» يُولَّد بأداة XcodeGen:  brew install xcodegen && xcodegen
+# لا يحتاج Mac محليًا: GitHub Actions يبنيه (.github/workflows/ios.yml).
+name: Afiati
+options:
+  bundleIdPrefix: ai.alshaye
+  deploymentTarget:
+    iOS: "16.0"
+  developmentLanguage: ar
+targets:
+  Afiati:
+    type: application
+    platform: iOS
+    sources:
+      - Afiati
+    scheme:
+      testTargets:
+        - AfiatiTests
+    # الإشعارات الفورية من العائلة (APNs)، وتنبيهات «حساسة للوقت» لطلب المساعدة ومواعيد الأدوية.
+    # عند التوقيع للتوزيع تصير aps-environment قيمتها production تلقائيًا.
+    entitlements:
+      path: Afiati/Afiati.entitlements
+      properties:
+        aps-environment: development
+        com.apple.developer.usernotifications.time-sensitive: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.alshaye.afiati
+        PRODUCT_NAME: Afiati
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "2.0"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_BITCODE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: Afiati/Info.plist
+      properties:
+        CFBundleDisplayName: عافيتي
+        CFBundleDevelopmentRegion: ar
+        CFBundleLocalizations:
+          - ar
+          - en
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        ITSAppUsesNonExemptEncryption: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # قياس النبض: الكاميرا الخلفية والفلاش فقط، ولا تُحفظ أي صورة
+        NSCameraUsageDescription: "يستخدم عافيتي الكاميرا الخلفية والفلاش لقياس نبضك من طرف إصبعك. يتم القياس داخل جوالك ولا تُحفظ أي صورة."
+        # الموقع لطلب المساعدة فقط، ولا يُتابع في الخلفية
+        NSLocationWhenInUseUsageDescription: "يرسل عافيتي موقعك لعائلتك فقط حين تضغط «أحتاج مساعدة»، ليصلوا إليك بسرعة."
+        # مزامنة دورية في الخلفية، وإشعارات العائلة
+        UIBackgroundModes:
+          - fetch
+          - remote-notification
+        BGTaskSchedulerPermittedIdentifiers:
+          - ai.alshaye.afiati.sync
+        # خط تجوال (الملفات في Afiati/Fonts، ترخيص OFL)
+        UIAppFonts:
+          - Tajawal-Light.ttf
+          - Tajawal-Regular.ttf
+          - Tajawal-Medium.ttf
+          - Tajawal-Bold.ttf
+
+  # اختبارات المنطق: معرّفات الجرعات (تطابق الخادم وأندرويد)، المواعيد، النبض، المدى الطبيعي
+  AfiatiTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - AfiatiTests
+    dependencies:
+      - target: Afiati
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.alshaye.afiati.tests
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Afiati.app/Afiati
+        BUNDLE_LOADER: $(TEST_HOST)

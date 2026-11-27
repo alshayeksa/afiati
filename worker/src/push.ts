@@ -1,6 +1,7 @@
 // Notifications: every message is stored in notifications_log (shown in the app's
 // notifications screen) and pushed to the user's devices: Firebase (FCM) for the native
-// Android app, and the Expo Push service for the older Expo app.
+// Android app, Apple (APNs) for the native iOS app, and the Expo Push service for the older Expo app.
+import { isApnsToken, sendApns } from './apns';
 import { isFcmToken, sendFcm } from './fcm';
 import { nowIso } from './http';
 
@@ -66,10 +67,12 @@ export async function notifyUser(
   )
     .bind(userId)
     .all<{ id: string; push_token: string }>();
-  const fcm = devices.filter((device) => isFcmToken(device.push_token));
-  const expo = devices.filter((device) => !isFcmToken(device.push_token));
+  const apns = devices.filter((device) => isApnsToken(device.push_token));
+  const fcm = devices.filter((device) => !isApnsToken(device.push_token) && isFcmToken(device.push_token));
+  const expo = devices.filter((device) => !isApnsToken(device.push_token) && !isFcmToken(device.push_token));
   if (expo.length) waitUntil(sendExpoPush(env, expo, { ...notification, data }));
   if (fcm.length) waitUntil(sendFcmPush(env, fcm, { ...notification, data }));
+  if (apns.length) waitUntil(sendApnsPush(env, apns, { ...notification, data }));
 }
 
 async function sendFcmPush(env: Env, devices: { id: string; push_token: string }[], notification: Resolved) {
@@ -89,6 +92,29 @@ async function sendFcmPush(env: Env, devices: { id: string; push_token: string }
     ),
   );
   // Forget tokens of uninstalled apps.
+  const stale = devices.filter((_, index) => results[index] === 'gone').map((device) => device.id);
+  if (stale.length) {
+    await env.DB.batch(stale.map((id) => env.DB.prepare('UPDATE devices SET push_token = NULL WHERE id = ?').bind(id)));
+  }
+}
+
+async function sendApnsPush(env: Env, devices: { id: string; push_token: string }[], notification: Resolved) {
+  const data = Object.fromEntries(
+    Object.entries(notification.data ?? {})
+      .filter(([key]) => key !== 'type')
+      .map(([key, value]) => [key, typeof value === 'string' ? value : JSON.stringify(value)]),
+  );
+  const results = await Promise.all(
+    devices.map((device) =>
+      sendApns(env, device.push_token, {
+        title: notification.title,
+        body: notification.body,
+        data,
+        type: notification.type,
+        urgent: notification.priority === 'high',
+      }),
+    ),
+  );
   const stale = devices.filter((_, index) => results[index] === 'gone').map((device) => device.id);
   if (stale.length) {
     await env.DB.batch(stale.map((id) => env.DB.prepare('UPDATE devices SET push_token = NULL WHERE id = ?').bind(id)));
