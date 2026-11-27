@@ -354,3 +354,20 @@ Manual entry is currently faster and more reliable for the target flow.
 - Local end-to-end: language 15/15 (English and Arabic readers of the same alert, an older build, switching language, family reminder, greetings). Regression: help details 27/27, help 32/32, alerts 30/30.
 - Production after deploy: sync 20/20, family 26/26. Test accounts removed.
 - On the Samsung: the home screen in English, LTR layout, English dates and units.
+
+## 2026-11-27 - Native iOS app (SwiftUI) and iPhone push
+
+### Change
+- `native/ios` (XcodeGen, iOS 16+, bundle id `ai.alshaye.afiati`): the same features and look as the Android app.
+  - Medicines, the 6-step add wizard, history, family (invite code with QR, approval, following a relative), help with location, camera pulse (AVFoundation + torch, same PPG algorithm), vital signs, Arabic/English, appearance and larger text.
+  - Same SQLite schema (version 4), outbox sync and conflict rules; dose ids match the server and Android.
+  - Reminders are local notifications with «Taken» and «Remind me in 10 minutes». iOS keeps at most 64, so the nearest 56 doses are scheduled and refreshed on open, on every change or notification action, and in background refresh (BGAppRefreshTask).
+- `.github/workflows/ios.yml`: unit tests on the simulator and an unsigned IPA on every push to `native/ios`. TestFlight is manual (`testflight` input) and skips with a notice until the app exists in App Store Connect.
+- Worker `src/apns.ts`: iPhone tokens (`apns:<hex>`, `apns-dev:<hex>`) are pushed through APNs.
+  - Help alerts carry the HELP_REQUEST category («I'm coming», Call, Map) and are Time Sensitive. Location updates carry the Map button.
+  - Stale tokens (410) are cleared. Needs the secrets APNS_KEY, APNS_KEY_ID and APNS_TEAM_ID; without them, notifications are only stored.
+
+### Verification
+- GitHub Actions (macOS, Xcode 27): build succeeded, 16/16 unit tests (dose ids, ISO time, schedule, conflicts, reminder window, vital ranges, greetings, pulse algorithm), IPA produced.
+- Local worker with a mock APNs that verifies the ES256 token: 22/22.
+- Not yet: running on a real iPhone (needs TestFlight), and the worker deploy to production (awaiting approval).
