@@ -235,6 +235,8 @@ object AppModel {
         running = true
         resumeTick++
         if (!::app.isInitialized) return
+        // إيقاف الخدمة أو تحديث إلزامي من صفحة التحكم
+        scope.launch { com.alshayeksa.afiati.sync.AppControl.refresh() }
         // تحيات جديدة أُضيفت للجدول تظهر دون إعادة تشغيل التطبيق
         scope.launch { Greetings.refresh() }
         scope.launch {
@@ -271,6 +273,8 @@ object AppModel {
         scope.launch {
             val result = SyncEngine.sync(app)
             sync = sync.copy(status = result.status, error = result.error, running = false)
+            // رفض الخادم (خدمة متوقفة أو نسخة قديمة): نقرأ الحالة فتظهر الشاشة المناسبة
+            if (result.status == SyncStatus.FAILED) com.alshayeksa.afiati.sync.AppControl.refresh()
             if (result.status != SyncStatus.SYNCED && result.status != SyncStatus.NO_PATIENT) SyncJobService.requestSoon(app)
             reload()
         }

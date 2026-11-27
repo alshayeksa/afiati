@@ -4,6 +4,14 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-11-01",
   "observability": { "enabled": true },
+  // The API stays on workers.dev (the apps use it); the owner control page is served on this domain behind Cloudflare Access.
+  "workers_dev": true,
+  "routes": [{ "pattern": "afiati.alshaye.ai", "custom_domain": true }],
+  "vars": {
+    // Same Cloudflare Access application as Mawja's control page (afiati.alshaye.ai/forceupdate is added to it)
+    "ACCESS_TEAM_DOMAIN": "khabir-alshayeksa.cloudflareaccess.com",
+    "ACCESS_AUD": "d65a5d86557fe966e0c9cb29a1f490602869e2d5cfadbafdac0ef482a1d85f95"
+  },
   // Every minute: unanswered help, missed doses, low stock (free plan allows cron triggers).
   "triggers": { "crons": ["* * * * *"] },
   "d1_databases": [

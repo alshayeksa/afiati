@@ -101,6 +101,13 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(Greetings.bundled.count, Greetings.bundledEnglish.count)
     }
 
+    func testControlBlocks() {
+        XCTAssertEqual(AppControl(serviceOn: false, minBuild: 0, updateURL: "").block, .serviceOff)
+        XCTAssertEqual(AppControl(serviceOn: true, minBuild: 100_000, updateURL: "").block, .update)
+        XCTAssertNil(AppControl(serviceOn: true, minBuild: 0, updateURL: "").block)
+        XCTAssertNil(AppControl(serviceOn: true, minBuild: 1, updateURL: "").block)
+    }
+
     func testArabicDoseWording() {
         XCTAssertEqual(Format.number(2), "2")
         XCTAssertEqual(Format.number(0.5), "0.5")

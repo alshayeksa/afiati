@@ -26,6 +26,7 @@ class AfiatiApp : Application() {
         super.onCreate()
         LocalStore.init(this)
         Lang.load(this)
+        com.alshayeksa.afiati.sync.AppControl.load()
         Db.init(this)
         Appearance.init(this)
         Reminders.createChannel(this)

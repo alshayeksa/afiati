@@ -93,6 +93,8 @@ fun AfiatiRoot() {
                 AppModel.patient == null -> OnboardingScreen()
                 else -> HomeScreen()
             }
+            // إيقاف الخدمة أو تحديث إلزامي من صفحة التحكم: شاشة تغطي كل شيء
+            com.alshayeksa.afiati.sync.AppControl.block?.let { BlockScreen(it) }
         }
     }
 }
@@ -158,6 +160,8 @@ fun HomeScreen() {
             ticks++
             if (AppModel.myHelp != null || AppModel.familyHelp.isNotEmpty()) AppModel.refreshHelp()
             if (ticks % 2 == 0) AppModel.checkDay()
+            // صفحة التحكم: كل دقيقتين، فتظهر أو تختفي شاشة الإيقاف دون إعادة فتح التطبيق
+            if (ticks % 8 == 0) com.alshayeksa.afiati.sync.AppControl.refresh()
         }
     }
     BackHandler(enabled = tab != Tab.TODAY && !showAdd && !showHelp && !showPulse && !showVitals && openPatient == null) { tab = Tab.TODAY }

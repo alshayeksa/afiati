@@ -33,6 +33,9 @@ object Api {
                 setRequestProperty("X-Timezone", java.time.ZoneId.systemDefault().id)
                 // لغة الواجهة: رسائل العائلة من الخادم تصل بها
                 setRequestProperty("X-Language", com.alshayeksa.afiati.Lang.code)
+                // رقم النسخة: الخادم يرفض النسخ القديمة إن فُعّل التحديث الإلزامي من صفحة التحكم
+                setRequestProperty("X-Platform", "android")
+                setRequestProperty("X-App-Build", BuildConfig.VERSION_CODE.toString())
                 if (token != null) setRequestProperty("Authorization", "Bearer $token")
                 if (body != null) {
                     doOutput = true

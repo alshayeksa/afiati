@@ -1,5 +1,6 @@
 import { alertLowStock, alertMissedDoses } from './alerts';
 import { authenticate, register } from './auth';
+import { appConfig, controlRoute, gate, readSettings, updateRoute } from './control';
 import { isApnsToken } from './apns';
 import { isFcmToken } from './fcm';
 import { parseGender } from './arabic';
@@ -30,6 +31,8 @@ export default {
   // Each job runs even if another one failed.
   async scheduled(_controller, env, ctx) {
     const waitUntil = (promise: Promise<unknown>) => ctx.waitUntil(promise);
+    // Service paused from /forceupdate: no scheduled family alerts either
+    if (!(await readSettings(env)).serviceOn) return;
     const jobs = { help: escalateHelp, missed: alertMissedDoses, stock: alertLowStock };
     for (const [name, job] of Object.entries(jobs)) {
       try {
@@ -46,6 +49,14 @@ async function route(request: Request, env: Env, waitUntil: (promise: Promise<un
   const method = request.method;
 
   if (method === 'GET' && pathname === '/health') return json({ ok: true });
+
+  // Owner controls (Cloudflare Access) and what the apps read on every open
+  if (pathname === '/forceupdate' && (method === 'GET' || method === 'POST')) return controlRoute(request, env);
+  if (method === 'GET' && pathname === '/update') return updateRoute(request, env);
+  if (method === 'GET' && pathname === '/v1/app-config') return json(appConfig(await readSettings(env)));
+
+  // Service paused, or an old build when enforcement is on: refused here
+  gate(request, await readSettings(env));
 
   if (method === 'POST' && pathname === '/v1/register') return json(await register(request, env), 201);
 

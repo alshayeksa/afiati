@@ -35,6 +35,9 @@ enum Api {
         request.setValue(TimeZone.current.identifier, forHTTPHeaderField: "X-Timezone")
         // لغة الواجهة: رسائل العائلة من الخادم تصل بها
         request.setValue(Lang.code, forHTTPHeaderField: "X-Language")
+        // رقم النسخة: الخادم يرفض النسخ القديمة إن فُعّل التحديث الإلزامي من صفحة التحكم
+        request.setValue("ios", forHTTPHeaderField: "X-Platform")
+        request.setValue(AppControl.currentBuild > 0 ? String(AppControl.currentBuild) : nil, forHTTPHeaderField: "X-App-Build")
         if auth {
             guard let token = SyncState.get(SyncState.deviceToken) else {
                 throw ApiError(status: 401, code: "unauthorized", message: tr("الجهاز غير مسجل.", "This device isn't registered."))

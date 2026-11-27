@@ -40,6 +40,10 @@ struct RootView: View {
             if model.loaded {
                 if model.patient == nil { OnboardingView() } else { HomeView() }
             }
+            // إيقاف الخدمة أو تحديث إلزامي من صفحة التحكم: شاشة تغطي كل شيء
+            if let block = model.control.block {
+                BlockView(block: block, updateURL: model.control.updateURL).zIndex(100)
+            }
         }
         .id("\(model.languageVersion)-\(model.themeVersion)")
         .environment(\.layoutDirection, Lang.direction)
@@ -131,6 +135,8 @@ struct HomeView: View {
                 ticks += 1
                 if model.myHelp != nil || !model.familyHelp.isEmpty { model.refreshHelp() }
                 if ticks % 2 == 0 { model.checkDay() }
+                // صفحة التحكم: كل دقيقتين، فتظهر أو تختفي شاشة الإيقاف دون إعادة فتح التطبيق
+                if ticks % 8 == 0 { model.refreshControl() }
             }
         }
     }

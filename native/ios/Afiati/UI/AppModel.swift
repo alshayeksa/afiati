@@ -67,6 +67,9 @@ final class AppModel: ObservableObject {
     /// تحيات اليوم
     @Published private(set) var greetings = Greetings.saved()
 
+    /// إيقاف الخدمة أو تحديث إلزامي من صفحة التحكم
+    @Published private(set) var control = AppControl.saved()
+
     /// يتغير مع اللغة أو المظهر، فتُعاد بناء الواجهة كلها
     @Published private(set) var languageVersion = 0
     @Published private(set) var themeVersion = 0
@@ -162,6 +165,7 @@ final class AppModel: ObservableObject {
     func onForeground() {
         running = true
         resumeTick += 1
+        refreshControl()
         Task { await refreshNotificationStatus() }
         // تحيات جديدة أُضيفت للجدول تظهر دون إعادة تشغيل التطبيق
         Task { if let fresh = await Greetings.refresh() { greetings = fresh } }
@@ -206,7 +210,16 @@ final class AppModel: ObservableObject {
             sync.status = result.status
             sync.error = result.error
             sync.running = false
+            // رفض الخادم (خدمة متوقفة أو نسخة قديمة): نقرأ الحالة فتظهر الشاشة المناسبة
+            if result.status == .failed { refreshControl() }
             reload()
+        }
+    }
+
+    /// يقرأ حالة صفحة التحكم من الخادم
+    func refreshControl() {
+        Task {
+            if let fresh = await AppControl.refresh(), fresh != control { control = fresh }
         }
     }
 
