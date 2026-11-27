@@ -373,3 +373,22 @@ Manual entry is currently faster and more reliable for the target flow.
 - TestFlight: signed with aps-environment production and uploaded ("UPLOAD SUCCEEDED with no errors").
 - Worker deployed to production (version fa13b8c2). Production regression: sync and family all passed. Test accounts removed.
 - Not yet: the APNS_* secrets on the worker, and a run on a real iPhone.
+
+## 2026-11-27 - Owner controls: /forceupdate (service switch, forced update)
+
+### Change
+- Worker (`src/control.ts`, migration `0006_app_settings.sql`):
+  - `/forceupdate`: a plain HTML form behind Cloudflare Access. The worker also verifies the Access JWT (RS256, audience, issuer, expiry) and requires the save to come from the page itself (Origin).
+  - Per platform: enable forced update, minimum build, update link, and «refuse old builds on the server too».
+  - Service switch: while paused, every API request gets 503 `service_off`, and the scheduled family alerts stop. Local medicine reminders keep working.
+  - `/v1/app-config` is what the apps read. `/update` shows the store link in a browser.
+  - The control page is served on `afiati.alshaye.ai` (custom domain). The API stays on workers.dev.
+- Android and iOS:
+  - Send `X-Platform` and `X-App-Build`.
+  - Read the config on every open, every two minutes, and after a refused sync. The last state is kept offline.
+  - Show a full-screen block («The service is paused» or «An Afiati update is available» with the update link). It keeps the emergency-contact and 997 call buttons.
+
+### Verification
+- Local: control 23/23 (Access refused without a token, or with a forged, expired or wrong-audience one; a cross-site save is refused; the service switch; forced update with and without enforcement; builds without headers).
+- Production: `/v1/app-config` answers. `/forceupdate` returns 403 without Access. Sync and family regression all passed. Test accounts removed.
+- Android unit tests and build passed; installed on the Samsung (data kept).

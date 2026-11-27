@@ -2,8 +2,9 @@
 // The page is a plain HTML form protected by Cloudflare Access (the JWT is verified here too).
 // The apps read /v1/app-config on every open; requests from old builds or while the service is off are refused.
 import { HttpError, json, nowIso } from './http';
+import { enforceRateLimit } from './rateLimit';
 
-type ControlEnv = Env & { ACCESS_AUD?: string; ACCESS_TEAM_DOMAIN?: string; ACCESS_CERTS_URL?: string };
+type ControlEnv = Env & { ACCESS_AUD?: string; ACCESS_TEAM_DOMAIN?: string; ACCESS_CERTS_URL?: string; CONTROL_PASSWORD?: string };
 
 export type PlatformRule = { enabled: boolean; build: number; enforce: boolean; url: string };
 export type Settings = { serviceOn: boolean; ios: PlatformRule; android: PlatformRule };
@@ -227,11 +228,53 @@ function controlPage(settings: Settings, user: string, message = '', ok = true) 
   ${platformSection('التحديث الإلزامي: أندرويد', 'android', settings.android, 'أقل رقم بناء مسموح (الرقم بين القوسين في «عن التطبيق»)')}`);
 }
 
-/** /forceupdate: GET shows the controls, POST saves them. Only through Cloudflare Access. */
+const sha256 = async (text: string) => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
+
+type Login = { user: string } | { status: 401 | 429 } | null;
+
+/**
+ * The owner password (secret CONTROL_PASSWORD), asked by the browser (HTTP Basic over HTTPS).
+ * Wrong attempts are limited per IP. null when no password is set.
+ */
+async function passwordLogin(request: Request, env: Env): Promise<Login> {
+  const secret = (env as ControlEnv).CONTROL_PASSWORD;
+  if (!secret || secret.length < 16) return null;
+  const header = request.headers.get('Authorization') || '';
+  if (!header.startsWith('Basic ')) return { status: 401 };
+  let given = '';
+  try {
+    const decoded = new TextDecoder().decode(Uint8Array.from(atob(header.slice(6)), (c) => c.charCodeAt(0)));
+    given = decoded.slice(decoded.indexOf(':') + 1);
+  } catch {
+    given = '';
+  }
+  const [a, b] = await Promise.all([sha256(given), sha256(secret)]);
+  if (crypto.subtle.timingSafeEqual(a, b)) return { user: 'owner (password)' };
+  try {
+    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+    await enforceRateLimit(env, `control:${ip}`, 10, 3600, 'Too many attempts');
+  } catch {
+    return { status: 429 };
+  }
+  return { status: 401 };
+}
+
+/** /forceupdate: GET shows the controls, POST saves them. Cloudflare Access, or the owner password. */
 export async function controlRoute(request: Request, env: Env): Promise<Response> {
-  const user = await verifyAccess(request, env);
+  let user = await verifyAccess(request, env);
   if (!user) {
-    return html(`<h1>صفحة محمية</h1><p>هذه الصفحة محمية بـ Cloudflare Access. سجّل الدخول بحساب مصرّح له.</p>`, 403);
+    const login = await passwordLogin(request, env);
+    if (login && 'user' in login) {
+      user = login.user;
+    } else if (login?.status === 429) {
+      return html(`<h1>محاولات كثيرة</h1><p>انتظر ساعة ثم حاول مرة أخرى.</p>`, 429);
+    } else if (login?.status === 401) {
+      const response = html(`<h1>صفحة محمية</h1><p>أدخل كلمة مرور صفحة التحكم.</p>`, 401);
+      response.headers.set('WWW-Authenticate', 'Basic realm="Afiati control", charset="UTF-8"');
+      return response;
+    } else {
+      return html(`<h1>صفحة محمية</h1><p>هذه الصفحة محمية بـ Cloudflare Access. سجّل الدخول بحساب مصرّح له.</p>`, 403);
+    }
   }
   const url = new URL(request.url);
   const current = await readSettings(env, true);
