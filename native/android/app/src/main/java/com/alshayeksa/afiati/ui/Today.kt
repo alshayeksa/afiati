@@ -118,15 +118,9 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
         // موجة النبض: هوية عافيتي، مدمجة تحت التحية
         item(key = "pulse-wave") { PulseWave(Modifier.fillMaxWidth().padding(top = 4.dp).height(92.dp)) }
         // المساعدة والنبض جنبًا إلى جنب: في متناول اليد دون أن يزاحما جرعات اليوم
-        item(key = "actions") {
-            Row(
-                Modifier.padding(horizontal = 14.dp).padding(top = 6.dp).fillMaxWidth().height(IntrinsicSize.Min),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                HelpTile(Modifier.weight(1f).fillMaxHeight(), onHelp)
-                PulseTile(Modifier.weight(1f).fillMaxHeight(), onPulse)
-            }
-        }
+        // زر المساعدة في صفحة «العائلة» حتى لا يُضغط بالخطأ؛ هنا يظهر فقط أثناء طلب جارٍ
+        if (AppModel.myHelp != null) item(key = "help-active") { HelpCard(onHelp) }
+        item(key = "pulse") { PulseCard(onPulse) }
 
         if (medications.isEmpty() && logs.isEmpty()) {
             item(key = "empty") {

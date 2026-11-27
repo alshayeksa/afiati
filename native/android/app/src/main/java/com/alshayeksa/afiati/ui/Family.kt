@@ -87,7 +87,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 @Composable
-fun FamilyScreen(header: @Composable () -> Unit, onOpenPatient: (FamilyLink) -> Unit) {
+fun FamilyScreen(header: @Composable () -> Unit, onOpenPatient: (FamilyLink) -> Unit, onHelp: () -> Unit) {
     var following by rememberSaveable { mutableStateOf(false) }
     var showInvite by rememberSaveable { mutableStateOf(false) }
     var showJoin by rememberSaveable { mutableStateOf(false) }
@@ -116,6 +116,7 @@ fun FamilyScreen(header: @Composable () -> Unit, onOpenPatient: (FamilyLink) -> 
         item(key = "title") {
             BigTitle("العائلة", "اطمئنان متبادل بموافقتك، وأنت تختار ما يرونه")
         }
+        item(key = "help") { HelpCard(onHelp) }
         item(key = "switch") {
             Row(
                 Modifier.padding(horizontal = 14.dp).padding(bottom = 14.dp).fillMaxWidth().glass(CircleShape).padding(5.dp),

@@ -125,26 +125,27 @@ private fun readingTime(iso: String): String {
 
 private fun bpmWords(bpm: Int) = "$bpm نبضة في الدقيقة"
 
-/** مربع النبض في «اليوم»: يفتح القياس، ويعرض آخر قراءة */
+/** بطاقة النبض في «اليوم»: تفتح القياس، وتعرض آخر قراءة */
 @Composable
-fun PulseTile(modifier: Modifier, onOpen: () -> Unit) {
+fun PulseCard(onOpen: () -> Unit) {
     val patientId = AppModel.patient?.id
     val last by produceState<HeartRateReading?>(null, patientId, PulseStore.version) {
         value = patientId?.let { id -> withContext(Dispatchers.IO) { runCatching { HeartRateRepository.recent(id, 1).firstOrNull() }.getOrNull() } }
     }
-    Column(
-        modifier.glass(RoundedCornerShape(26.dp))
+    Row(
+        Modifier.padding(horizontal = 14.dp).padding(top = 6.dp).fillMaxWidth().glass(RoundedCornerShape(24.dp))
             .clickable(role = Role.Button, onClickLabel = "قياس النبض", onClick = onOpen)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(50.dp).clip(CircleShape).background(Brand.glow.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
             Icon(Icons.Filled.MonitorHeart, null, tint = Brand.glow, modifier = Modifier.size(28.dp))
         }
-        Column {
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
             Text("قياس النبض", style = tajawal(20, FontWeight.Bold))
             Text(
-                last?.let { "آخر قياس: ${it.bpm} نبضة" } ?: "بالكاميرا · 30 ثانية",
+                last?.let { "آخر قياس: ${it.bpm} نبضة · ${readingTime(it.measuredAt)}" } ?: "ضع إصبعك على الكاميرا 30 ثانية",
                 style = tajawal(14, color = Brand.secondaryText),
             )
         }

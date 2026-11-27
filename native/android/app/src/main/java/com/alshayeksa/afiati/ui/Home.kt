@@ -166,7 +166,7 @@ fun HomeScreen() {
             Tab.TODAY -> TodayScreen(header, onAdd = { showAdd = true }, onOpenMedication = { openMedication = it }, onHelp = { showHelp = true }, onPulse = { showPulse = true })
             Tab.MEDICATIONS -> MedicationsScreen(header, onAdd = { showAdd = true }, onOpen = { openMedication = it })
             Tab.HISTORY -> HistoryScreen(header)
-            Tab.FAMILY -> FamilyScreen(header, onOpenPatient = { openPatient = it })
+            Tab.FAMILY -> FamilyScreen(header, onOpenPatient = { openPatient = it }, onHelp = { showHelp = true })
         }
         // تدرّج خلف شريط التبويب وأزرار النظام، فلا يتداخل المحتوى معها
         val navigation = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
