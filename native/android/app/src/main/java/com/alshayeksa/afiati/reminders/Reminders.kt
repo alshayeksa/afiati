@@ -40,6 +40,8 @@ object Reminders {
     const val CHANNEL = "medication-reminders"
     const val FAMILY_CHANNEL = "family"
     const val HELP_CHANNEL = "help"
+    /** «قريبك قادم إليك»: رنّة كريستال مطمئنة بدل صوت المنبّه */
+    const val COMING_CHANNEL = "help-coming"
     private const val PREFS = "reminders"
     private const val KEY_CODES = "codes"
     const val SNOOZE_MINUTES = 10L
@@ -76,7 +78,18 @@ object Reminders {
                 AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build(),
             )
         }
-        context.getSystemService(NotificationManager::class.java)?.createNotificationChannels(listOf(channel, family, help))
+        // رد العائلة على طلبك: يُسمع مثل طلب المساعدة (حتى في «عدم الإزعاج» إن سُمح)، لكن برنّة هادئة
+        val coming = NotificationChannel(COMING_CHANNEL, tr("قريبك قادم إليك", "Your relative is coming"), NotificationManager.IMPORTANCE_HIGH).apply {
+            description = tr("حين يضغط أحد أفراد عائلتك «أنا قادم» ردًّا على طلبك", "When a family member taps “I'm coming” in reply to your request")
+            enableVibration(true)
+            vibrationPattern = longArrayOf(0, 250, 150, 250)
+            setBypassDnd(true)
+            setSound(
+                android.net.Uri.parse("android.resource://${context.packageName}/${R.raw.coming}"),
+                AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build(),
+            )
+        }
+        context.getSystemService(NotificationManager::class.java)?.createNotificationChannels(listOf(channel, family, help, coming))
     }
 
     fun canScheduleExact(context: Context): Boolean =

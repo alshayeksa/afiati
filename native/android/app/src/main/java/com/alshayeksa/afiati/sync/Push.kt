@@ -73,6 +73,7 @@ object Push {
         val channel = when (data["channel"]) {
             Reminders.CHANNEL -> Reminders.CHANNEL
             Reminders.HELP_CHANNEL -> Reminders.HELP_CHANNEL
+            Reminders.COMING_CHANNEL -> Reminders.COMING_CHANNEL
             else -> Reminders.FAMILY_CHANNEL
         }
         val type = data["type"].orEmpty()

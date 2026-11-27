@@ -58,7 +58,8 @@ export function apnsPayload(message: ApnsMessage) {
   const category = categoryFor(message.type, message.data);
   const aps: Record<string, unknown> = {
     alert: { title: message.title, body: message.body },
-    sound: 'default',
+    // «X is coming to you» plays the crystal chime bundled in the app (coming.wav); iOS uses the default if it is missing
+    sound: message.type === 'help_ack' ? 'coming.wav' : 'default',
     // Messages about one help request replace each other on the lock screen
     'thread-id': message.data.help_id ? `help-${message.data.help_id}` : message.type,
   };

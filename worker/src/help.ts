@@ -278,7 +278,8 @@ export async function acknowledgeHelp(env: Env, auth: AuthContext, id: string, w
       title: { ar: `${responderName} ${g(rg, 'قادم', 'قادمة')} إليك`, en: `${responderName} is coming to you` },
       body: { ar: `وصل طلبك. ${g(pg, 'ابق في مكانك واطمئن.', 'ابقي في مكانك واطمئني.')}`, en: 'Your request arrived. Stay where you are and relax.' },
       data: { help_id: id },
-      channelId: HELP_CHANNEL,
+      // Its own channel and sound: a calm crystal chime instead of the alarm (older builds fall back to their default)
+      channelId: 'help-coming',
       priority: 'high',
     }, waitUntil);
     for (const member of await followers(env, row.patient_id)) {
