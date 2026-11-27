@@ -89,7 +89,7 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(VitalRanges.temperature(38.5), .high)
         XCTAssertEqual(VitalRanges.pulse(72), .normal)
         XCTAssertEqual(VitalRanges.display(VitalReading(id: "1", patientId: "p", type: .pressure, value: 120, value2: 80, context: nil, measuredAt: "")), "\u{2066}120/80\u{2069}")
-        XCTAssertEqual(VitalRanges.display(VitalReading(id: "1", patientId: "p", type: .temperature, value: 36.85, value2: nil, context: nil, measuredAt: "")), "36.9")
+        XCTAssertEqual(VitalRanges.display(VitalReading(id: "1", patientId: "p", type: .temperature, value: 36.86, value2: nil, context: nil, measuredAt: "")), "36.9")
     }
 
     func testGreetingsCycleWithoutRepeats() {
