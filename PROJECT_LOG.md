@@ -314,3 +314,43 @@ Manual entry is currently faster and more reliable for the target flow.
 - Production: `/v1/greetings` returns 30 greetings with correct Arabic.
 - Unit tests: no repeat within a cycle, stable per day, empty and single lists. All 20 unit tests pass.
 - Not yet installed on the Samsung (not connected).
+
+## 2026-11-27 - Home screen rework, pulse wave, vital signs
+
+### Change
+- Home (Today):
+  - Today's doses come first and the daily progress card comes last.
+  - The «أحسنت · أخذتها 3:36 م» note sits inside the dose card. The separate "next dose" card is gone; upcoming doses say "in 4 hours".
+  - The help button moved to the Family tab so it is not pressed by mistake. Home shows it only while a request is active.
+  - A small «العلامات الحيوية» link sits on the left of the greeting.
+  - Lighter typography: headings 23–40 scaled by 0.87, line height 1.6, section titles 19.
+- Pulse wave (`PulseWave` in Theme.kt): a ribbon of thin glowing lines that gathers into two ECG-shaped heartbeats beating once a second. A white head draws the line from edge to edge every 3.6 seconds, with a start glow and an end glow, and colours shifting between violet, blue, cyan and sea green.
+- Vital signs (`ui/Vitals.kt`, `data/Vitals.kt`, local table `vital_readings_local`, database version 4):
+  - Pulse by camera, plus manual blood pressure, blood sugar (fasting, after a meal, any time) and temperature.
+  - Each card shows the last value with unit, a status chip (normal / slightly high / high / very high / low / very low), the time and the normal range.
+  - Ranges: AHA for blood pressure, ADA for sugar, oral temperature, resting pulse.
+  - Urgent readings advise calling a doctor or 997. Input is validated (typos, systolic must exceed diastolic). Each sign keeps its last 5 readings, deletable.
+  - Readings stay on the phone.
+- Fixed during review: blood pressure fields read «120 / 80» left to right, numeric ranges no longer render reversed in Arabic text, and the sugar context chips are no longer cut off.
+
+### Verification
+- Unit tests: vital ranges (4), plus 20 earlier tests.
+- On the Samsung: home order, vital signs screen, and the blood pressure and sugar entry sheets.
+
+## 2026-11-27 - Arabic / English interface
+
+### Change
+- `L10n.kt`: `Lang` (saved choice, Arabic by default, loaded in AfiatiApp so notifications follow it too) and `tr(ar, en)`.
+  - A script replaced 644 Arabic UI literals after a per-line review. Stored values stay Arabic: dose units, which the server checks.
+  - Enums and top-level lists read the language at use time.
+- «ع/E» button in the top bar between «i» and the gear, and «اللغة · Language» at the top of Settings.
+- The layout direction follows the language (RTL / LTR). Dates, the Hijri calendar, AM/PM, weekdays, dose plurals («1 tablet», «2 tablets»), greetings, notification channel names and notification actions all switch.
+- Worker (migration `0005_language.sql`):
+  - The phone sends `X-Language`, stored in `devices.language`.
+  - `notifyUser` takes Arabic and English text and writes each family message in the reader's language. Older builds without the header get Arabic.
+  - `greetings.text_en` holds the English of the 30 greetings, and `/v1/greetings` returns it.
+
+### Verification
+- Local end-to-end: language 15/15 (English and Arabic readers of the same alert, an older build, switching language, family reminder, greetings). Regression: help details 27/27, help 32/32, alerts 30/30.
+- Production after deploy: sync 20/20, family 26/26. Test accounts removed.
+- On the Samsung: the home screen in English, LTR layout, English dates and units.
