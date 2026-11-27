@@ -204,7 +204,7 @@ function logUpsert(env: Env, row: LogRow) {
 }
 
 function medicationToApi(row: Record<string, unknown>) {
-  const { repeat_days_json, times_json, server_seq, is_active, ...rest } = row;
+  const { repeat_days_json, times_json, server_seq, is_active, stock_alerted_at, ...rest } = row;
   return {
     ...rest,
     repeat_days: JSON.parse(String(repeat_days_json)),
@@ -214,7 +214,7 @@ function medicationToApi(row: Record<string, unknown>) {
 }
 
 function logToApi(row: Record<string, unknown>) {
-  const { server_seq, ...rest } = row;
+  const { server_seq, family_notified_at, ...rest } = row;
   return rest;
 }
 

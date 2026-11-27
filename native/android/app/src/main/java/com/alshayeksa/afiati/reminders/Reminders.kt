@@ -19,13 +19,16 @@ import com.alshayeksa.afiati.data.Db
 import com.alshayeksa.afiati.data.MedicationRepository
 import com.alshayeksa.afiati.data.PatientRepository
 import com.alshayeksa.afiati.data.Schedule
+import com.alshayeksa.afiati.sync.SyncEngine
 import com.alshayeksa.afiati.sync.SyncJobService
+import com.alshayeksa.afiati.sync.SyncStatus
 import com.alshayeksa.afiati.ui.AppModel
 import com.alshayeksa.afiati.ui.Format
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 
 /**
@@ -132,6 +135,47 @@ object Reminders {
 
     fun notificationId(medicationId: String, scheduledAt: String) = "$medicationId|$scheduledAt".hashCode()
 
+    /**
+     * بعد كل جرعة أو علبة جديدة: إن بلغ الدواء حد التنبيه يظهر إشعار مرة واحدة،
+     * ولا يتكرر حتى يُضاف مخزون فوق الحد ثم ينخفض من جديد. يعمل بلا إنترنت.
+     */
+    fun checkStock(context: Context, patientId: String, medicationId: String) {
+        Db.init(context)
+        val medication = MedicationRepository.list(patientId).firstOrNull { it.id == medicationId } ?: return
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val key = "stock_alerted_$medicationId"
+        if (!medication.lowStock) {
+            prefs.edit().remove(key).apply()
+            context.getSystemService(NotificationManager::class.java)?.cancel(stockNotificationId(medicationId))
+            return
+        }
+        if (prefs.getBoolean(key, false)) return
+        prefs.edit().putBoolean(key, true).apply()
+        if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val count = medication.stockCount ?: 0
+        val open = PendingIntent.getActivity(
+            context, stockNotificationId(medicationId),
+            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val title = if (count <= 0) "نفد ${medication.name}" else "${medication.name} قارب على النفاد"
+        val body = if (count <= 0) "اطلب علبة جديدة، ثم اضغط «اشتريت علبة» في عافيتي." else "باقي $count. اطلب علبة جديدة قريبًا، ثم اضغط «اشتريت علبة» في عافيتي."
+        context.getSystemService(NotificationManager::class.java)?.notify(
+            stockNotificationId(medicationId),
+            Notification.Builder(context, CHANNEL)
+                .setSmallIcon(R.drawable.ic_stat_pill)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(Notification.BigTextStyle().bigText(body))
+                .setCategory(Notification.CATEGORY_REMINDER)
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build(),
+        )
+    }
+
+    private fun stockNotificationId(medicationId: String) = "stock|$medicationId".hashCode()
+
     /** إشعار موعد الدواء */
     fun show(context: Context, medicationId: String, time: String, scheduledAt: String) {
         if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
@@ -184,11 +228,15 @@ class ReminderReceiver : BroadcastReceiver() {
                         val scheduledAt = intent.getStringExtra(Reminders.EXTRA_SCHEDULED_AT) ?: return@launch
                         Db.init(context)
                         val patient = PatientRepository.get()
-                        if (patient != null && MedicationRepository.markTakenFor(patient.id, medicationId, scheduledAt)) {
-                            SyncJobService.requestSoon(context)
-                        }
+                        val changed = patient != null && MedicationRepository.markTakenFor(patient.id, medicationId, scheduledAt)
                         context.getSystemService(NotificationManager::class.java)?.cancel(Reminders.notificationId(medicationId, scheduledAt))
                         AppModel.refreshIfRunning()
+                        if (changed && patient != null) {
+                            Reminders.checkStock(context, patient.id, medicationId)
+                            // ترفع الآن إن أمكن، فلا يصل العائلة تنبيه جرعة فائتة وهي مأخوذة
+                            val synced = withTimeoutOrNull(8_000) { SyncEngine.sync(context) }
+                            if (synced?.status != SyncStatus.SYNCED) SyncJobService.requestSoon(context)
+                        }
                     }
                     Reminders.ACTION_SNOOZE -> {
                         val scheduledAt = intent.getStringExtra(Reminders.EXTRA_SCHEDULED_AT) ?: return@launch

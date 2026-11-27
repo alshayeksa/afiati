@@ -28,6 +28,8 @@ object Api {
                 connectTimeout = TIMEOUT_MS
                 readTimeout = TIMEOUT_MS
                 setRequestProperty("Accept", "application/json")
+                // منطقة الجوال الزمنية: الخادم لا يرسل في الليل التنبيهات التي تحتمل التأجيل
+                setRequestProperty("X-Timezone", java.time.ZoneId.systemDefault().id)
                 if (token != null) setRequestProperty("Authorization", "Bearer $token")
                 if (body != null) {
                     doOutput = true

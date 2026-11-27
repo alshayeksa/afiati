@@ -4,7 +4,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-11-01",
   "observability": { "enabled": true },
-  // Every minute: re-alert family about unanswered help requests (free plan allows cron triggers).
+  // Every minute: unanswered help, missed doses, low stock (free plan allows cron triggers).
   "triggers": { "crons": ["* * * * *"] },
   "d1_databases": [
     {

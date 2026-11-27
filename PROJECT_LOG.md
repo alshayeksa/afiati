@@ -236,3 +236,22 @@ Manual entry is currently faster and more reliable for the target flow.
 - Edge Function deployment requires `SUPABASE_ACCESS_TOKEN`; the database service-role key cannot deploy functions.
 - Legacy records owned by the old fixed `DEV_USER` were left untouched. Reassign them only after the real patient identity is verified; automatic claiming by an unverified name, email, or phone would be insecure.
 - Until those two cloud settings are completed, personal features continue to work locally, while sync and family activation report a controlled error and retain pending Outbox operations.
+
+## 2026-11-27 - Scheduled family alerts: missed doses and low stock
+
+### Change
+- Worker (`worker/src/alerts.ts`, migration `0002_scheduled_alerts.sql`, same cron every minute as help):
+  - Missed doses: a dose still not taken one hour after its time (and at most 3 hours old) is reported once to every approved relative, in a single message per elder ("فاتت <name> جرعتان"). Medicine names are shown only to full-privacy relatives. If the elder's phone has not reached the server since the dose, the message says the dose may have been taken but not synced. The server never changes dose status; `medication_logs.family_notified_at` records that the dose was reported.
+  - Low stock: a medicine at or below its alert level is reported once to full-privacy relatives, only between 09:00 and 21:59 in the elder's time zone. It is reported again only after a refill above the level. Tracked in `medications.stock_alerted_at`.
+  - The phone sends its IANA zone in `X-Timezone`. It is stored in `devices.timezone` (invalid values are ignored; default Asia/Riyadh).
+  - Bookkeeping columns are hidden from sync pull. The cron runs each job separately, so one failure does not stop the others.
+- Android:
+  - Each sync creates today's and tomorrow's doses first, so the server knows about doses before they are due even if the app is not opened.
+  - "أخذتها" from the notification now syncs immediately (8 seconds at most, then a background job), so the family does not get a false missed-dose alert.
+  - Local low-stock notification for the elder after taking a dose, once per crossing, cleared by a refill. Works offline.
+  - Tapping a missed-dose or low-stock alert opens that relative's day with the remind button.
+
+### Verification
+- Local end-to-end with the mock Google server: 30/30 passed (grouping, privacy, once only, late take, offline remark, no family, stopped medicine, stock once and again after refill, night hold and morning send, invalid zone). Help regression 32/32.
+- Production sync 20/20 and family 26/26 after deploying. The Samsung reports Asia/Riyadh to the server.
+- Not yet seen on a real phone as a relative: the owner's real profile is on the Samsung, so no test family was linked to it.

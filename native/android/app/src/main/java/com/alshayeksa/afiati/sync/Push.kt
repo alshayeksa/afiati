@@ -85,6 +85,9 @@ object Push {
                     when {
                         type == "invite_request" -> MainActivity.OPEN_FAMILY
                         type.startsWith("help") -> MainActivity.OPEN_HELP
+                        // جرعة فائتة أو دواء قارب على النفاد: يفتح يوم قريبك وزر التذكير
+                        (type == "missed_dose" || type == "low_stock") && !data["patient_id"].isNullOrBlank() ->
+                            MainActivity.OPEN_PATIENT_PREFIX + data["patient_id"]
                         else -> MainActivity.OPEN_NOTIFICATIONS
                     },
                 ),

@@ -34,9 +34,9 @@ export async function register(request: Request, env: Env) {
        VALUES (?, ?, ?, ?, 0, ?, ?)`,
     ).bind(profileId, fullName, phone, email, now, now),
     env.DB.prepare(
-      `INSERT INTO devices (id, profile_id, secret_hash, platform, created_at, last_seen_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-    ).bind(deviceId, profileId, secretHash, platform, now, now),
+      `INSERT INTO devices (id, profile_id, secret_hash, platform, timezone, created_at, last_seen_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(deviceId, profileId, secretHash, platform, validTimezone(request.headers.get('X-Timezone')), now, now),
   ]);
 
   return { device_id: deviceId, token: `${deviceId}.${secret}` };
@@ -49,20 +49,35 @@ export async function authenticate(request: Request, env: Env): Promise<AuthCont
   const [, deviceId, secret] = match;
 
   const device = await env.DB.prepare(
-    'SELECT profile_id, secret_hash, last_seen_at FROM devices WHERE id = ? AND revoked_at IS NULL',
+    'SELECT profile_id, secret_hash, last_seen_at, timezone FROM devices WHERE id = ? AND revoked_at IS NULL',
   )
     .bind(deviceId)
-    .first<{ profile_id: string; secret_hash: string; last_seen_at: string }>();
+    .first<{ profile_id: string; secret_hash: string; last_seen_at: string; timezone: string | null }>();
   if (!device || !(await hashesEqual(await sha256Hex(secret), device.secret_hash))) {
     throw new HttpError(401, 'unauthorized');
   }
 
-  // Avoid a write on every request: refresh last_seen_at at most once an hour.
-  if (Date.now() - Date.parse(device.last_seen_at) > 60 * 60 * 1000) {
-    await env.DB.prepare('UPDATE devices SET last_seen_at = ? WHERE id = ?').bind(nowIso(), deviceId).run();
+  // Avoid a write on every request: refresh last_seen_at at most once an hour, or when the phone's zone changed.
+  const timezone = validTimezone(request.headers.get('X-Timezone'));
+  const zoneChanged = timezone !== null && timezone !== device.timezone;
+  if (zoneChanged || Date.now() - Date.parse(device.last_seen_at) > 60 * 60 * 1000) {
+    await env.DB.prepare('UPDATE devices SET last_seen_at = ?, timezone = COALESCE(?, timezone) WHERE id = ?')
+      .bind(nowIso(), timezone, deviceId)
+      .run();
   }
 
   return { deviceId, profileId: device.profile_id };
+}
+
+/** An IANA zone name the runtime knows (e.g. "Asia/Riyadh"), else null. */
+export function validTimezone(value: string | null | undefined) {
+  if (!value || value.length > 64 || !/^[A-Za-z0-9_+\-/]+$/.test(value)) return null;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return value;
+  } catch {
+    return null;
+  }
 }
 
 function randomSecret() {

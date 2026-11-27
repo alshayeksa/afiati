@@ -1,3 +1,4 @@
+import { alertLowStock, alertMissedDoses } from './alerts';
 import { authenticate, register } from './auth';
 import { isFcmToken } from './fcm';
 import { acknowledgeHelp, activeHelp, escalateHelp, requestHelp, resolveHelp } from './help';
@@ -23,9 +24,18 @@ export default {
     }
   },
 
-  // Cron (every minute, see wrangler.jsonc): re-alert family about unanswered help requests.
+  // Cron (every minute, see wrangler.jsonc): unanswered help, missed doses, low stock.
+  // Each job runs even if another one failed.
   async scheduled(_controller, env, ctx) {
-    await escalateHelp(env, (promise) => ctx.waitUntil(promise));
+    const waitUntil = (promise: Promise<unknown>) => ctx.waitUntil(promise);
+    const jobs = { help: escalateHelp, missed: alertMissedDoses, stock: alertLowStock };
+    for (const [name, job] of Object.entries(jobs)) {
+      try {
+        await job(env, waitUntil);
+      } catch (error) {
+        console.error(`scheduled ${name} failed`, error);
+      }
+    }
   },
 } satisfies ExportedHandler<Env>;
 

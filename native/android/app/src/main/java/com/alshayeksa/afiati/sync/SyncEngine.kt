@@ -53,6 +53,12 @@ object SyncEngine {
             pushProfile()
             // رمز الإشعارات لا يوقف المزامنة إن تعذّر، ويُعاد في المرة القادمة
             runCatching { Push.register(context) }
+            // جرعات اليوم والغد تصل الخادم قبل موعدها، فيعرف إن فاتت جرعة حتى لو لم يُفتح التطبيق
+            runCatching {
+                val today = java.time.LocalDate.now()
+                MedicationRepository.ensureLogsForDate(patient.id, today)
+                MedicationRepository.ensureLogsForDate(patient.id, today.plusDays(1))
+            }
             val pushed = pushOutbox()
             val pulled = pull()
             SyncState.set(SyncState.LAST_SUCCESS, Iso.now())

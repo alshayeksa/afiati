@@ -1,6 +1,11 @@
 package com.alshayeksa.afiati.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.snapshotFlow
+import com.alshayeksa.afiati.MainActivity
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -121,6 +126,18 @@ fun HomeScreen() {
             "notifications" -> {
                 showAdd = false; openPatient = null; showProfile = false; showSettings = false; openMedication = null
                 showNotifications = true
+            }
+            else -> if (pendingOpen?.startsWith(MainActivity.OPEN_PATIENT_PREFIX) == true) {
+                // تنبيه جرعة فائتة أو مخزون: يفتح يوم هذا القريب مباشرة
+                showAdd = false; showHelp = false; openPatient = null; showProfile = false; showSettings = false; showNotifications = false; openMedication = null
+                tab = Tab.FAMILY
+                val patientId = pendingOpen.removePrefix(MainActivity.OPEN_PATIENT_PREFIX)
+                AppModel.refreshFamily()
+                val link = withTimeoutOrNull(10_000) {
+                    snapshotFlow { AppModel.family?.following?.firstOrNull { it.patientId == patientId && it.status == "active" } }
+                        .filterNotNull().first()
+                }
+                if (link != null) openPatient = link
             }
         }
         AppModel.pendingOpen = null

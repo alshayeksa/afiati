@@ -74,6 +74,7 @@ class MainActivity : ComponentActivity() {
         const val OPEN_FAMILY = "family"
         const val OPEN_NOTIFICATIONS = "notifications"
         const val OPEN_HELP = "help"
+        const val OPEN_PATIENT_PREFIX = "patient:"
     }
 
     override fun onResume() {

@@ -303,7 +303,10 @@ object AppModel {
         val id = patient?.id ?: return
         if (amount <= 0) return
         scope.launch {
-            withContext(Dispatchers.IO) { MedicationRepository.refill(id, medication.id, amount) }
+            withContext(Dispatchers.IO) {
+                MedicationRepository.refill(id, medication.id, amount)
+                Reminders.checkStock(app, id, medication.id)
+            }
             reload()
             afterChange(sync = true, reminders = false)
             toast = "أُضيف $amount إلى مخزون ${medication.name}"
@@ -338,7 +341,9 @@ object AppModel {
         takeJob = null
         pendingTake = null
         scope.launch {
-            withContext(Dispatchers.IO) { MedicationRepository.markTaken(id, log.id) }
+            withContext(Dispatchers.IO) {
+                if (MedicationRepository.markTaken(id, log.id)) Reminders.checkStock(app, id, log.medicationId)
+            }
             app.getSystemService(android.app.NotificationManager::class.java)?.cancel(Reminders.notificationId(log.medicationId, log.scheduledAt))
             reload()
             afterChange(sync = true, reminders = false)
