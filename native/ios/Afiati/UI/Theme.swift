@@ -400,7 +400,10 @@ struct PulseWave: View {
                     layer.addFilter(.blur(radius: 9))
                     PulseWave.drawLines(in: &layer, size: size, time: time, light: light, lineWidth: 2.6, alpha: 0.55, lines: 7)
                 }
+                // القلب في الوسط: توهجه وتعبئته الشفافة خلف الخطوط، فتظهر الموجة تمر من خلاله، ثم حدّه فوقها
+                PulseWave.drawHeart(in: &context, size: size, time: time, light: light, front: false)
                 PulseWave.drawLines(in: &context, size: size, time: time, light: light, lineWidth: 0.8, alpha: 1, lines: 16)
+                PulseWave.drawHeart(in: &context, size: size, time: time, light: light, front: true)
                 PulseWave.drawGlow(in: &context, size: size, time: time, light: light)
             }
         }
@@ -470,7 +473,8 @@ struct PulseWave: View {
             while x <= width {
                 let t = (width - x) / width
                 // الخطوط تتباعد كالموجة بعيدًا عن النبضة، وتجتمع عندها فتظهر حادة
-                let pinch = beats.map { gauss(t - $0, 0.06) }.max() ?? 0
+                // تجتمع أيضًا قليلًا عند القلب في الوسط، كأنها تعبر من خلاله
+                let pinch = max(beats.map { gauss(t - $0, 0.06) }.max() ?? 0, 0.5 * gauss(t - 0.5, 0.07))
                 let spread = height * 0.34 * (1 - pinch) * (0.7 + 0.3 * sin(t * 7 + time * 0.7))
                 let point = CGPoint(x: x, y: center(t, time, height) + k * spread)
                 if first { path.move(to: point); first = false } else { path.addLine(to: point) }
@@ -479,6 +483,49 @@ struct PulseWave: View {
             var layer = context
             layer.opacity = 1 - abs(k) * 0.9
             layer.stroke(path, with: shading, lineWidth: lineWidth)
+        }
+    }
+
+    /// خفقة القلب كل ثانية: «لب» قوية ثم «دب» أخف، بين 0 و1
+    private static func heartBeat(_ time: Double) -> Double {
+        let phase = time.truncatingRemainder(dividingBy: 1)
+        return max(exp(-pow(phase - 0.04, 2) / 0.0018), 0.65 * exp(-pow(phase - 0.3, 2) / 0.0018))
+    }
+
+    /// شكل القلب (المعادلة المعروفة) بمركز وحجم، والرأس للأعلى
+    private static func heartPath(_ center: CGPoint, _ size: Double) -> Path {
+        var path = Path()
+        for i in 0...72 {
+            let a = Double(i) / 72 * 2 * .pi
+            let x = 16 * pow(sin(a), 3)
+            let y = 13 * cos(a) - 5 * cos(2 * a) - 2 * cos(3 * a) - cos(4 * a)
+            let point = CGPoint(x: center.x + x / 34 * size, y: center.y - (y + 2.5) / 34 * size)
+            if i == 0 { path.move(to: point) } else { path.addLine(to: point) }
+        }
+        path.closeSubpath()
+        return path
+    }
+
+    /// قلب ينبض في وسط الموجة، ويضيء أكثر حين يمر به رأس الموجة المضيء
+    static func drawHeart(in context: inout GraphicsContext, size: CGSize, time: Double, light: Bool, front: Bool) {
+        let width = Double(size.width), height = Double(size.height)
+        guard width > 0 else { return }
+        let beat = heartBeat(time)
+        let p = sweep(time)
+        let passing = exp(-pow(p - 0.5, 2) / 0.004)
+        let heart = height * 0.62 * (1 + 0.13 * beat)
+        let center = CGPoint(x: width / 2, y: height * 0.5)
+        let path = heartPath(center, heart)
+        if !front {
+            let glow = heart * 1.25
+            let color = shifting(time, 0.5, light, 0.30 + 0.25 * beat + 0.3 * passing)
+            context.fill(Path(ellipseIn: CGRect(x: center.x - glow, y: center.y - glow, width: glow * 2, height: glow * 2)),
+                         with: .radialGradient(Gradient(colors: [color, color.opacity(0)]), center: center, startRadius: 0, endRadius: glow))
+            context.fill(path, with: .linearGradient(Gradient(colors: [shifting(time, 0.5, light, 0.22), shifting(time, 0.5, light, 0.08)]),
+                                                     startPoint: CGPoint(x: center.x, y: center.y - heart / 2), endPoint: CGPoint(x: center.x, y: center.y + heart / 2)))
+        } else {
+            context.stroke(path, with: .color(shifting(time, 0.5, light, 0.35)), lineWidth: 4 * (1 + 0.5 * beat))
+            context.stroke(path, with: .color(Color.white.opacity(0.55 + 0.35 * max(beat, passing))), lineWidth: 1.3)
         }
     }
 

@@ -292,9 +292,63 @@ fun PulseWave(modifier: Modifier = Modifier, animated: Boolean = true) {
             drawPulseWave(time, light, strokeWidth = 2.6.dp.toPx(), alpha = 0.55f, lines = 7)
         }
         Canvas(Modifier.fillMaxSize()) {
+            // القلب في الوسط: توهجه وتعبئته الشفافة خلف الخطوط، فتظهر الموجة تمر من خلاله، ثم حدّه فوقها
+            drawHeart(time, light, front = false)
             drawPulseWave(time, light, strokeWidth = 0.8.dp.toPx(), alpha = 1f, lines = 16)
+            drawHeart(time, light, front = true)
             drawSweepGlow(time, light)
         }
+    }
+}
+
+/** خفقة القلب كل ثانية: «لب» قوية ثم «دب» أخف، بين 0 و1 */
+private fun heartBeat(time: Float): Float {
+    val phase = time % 1f
+    return maxOf(exp(-((phase - 0.04f) * (phase - 0.04f)) / 0.0018f), 0.65f * exp(-((phase - 0.3f) * (phase - 0.3f)) / 0.0018f))
+}
+
+/** شكل القلب (المعادلة المعروفة) بمركز وحجم، والرأس للأعلى */
+private fun heartPath(cx: Float, cy: Float, size: Float): Path {
+    val path = Path()
+    val steps = 72
+    for (i in 0..steps) {
+        val a = (i.toFloat() / steps) * 2 * PI.toFloat()
+        val s = sin(a)
+        val x = 16 * s * s * s
+        val y = 13 * cos(a) - 5 * cos(2 * a) - 2 * cos(3 * a) - cos(4 * a)
+        val px = cx + x / 34f * size
+        val py = cy - (y + 2.5f) / 34f * size
+        if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
+    }
+    path.close()
+    return path
+}
+
+/**
+ * قلب ينبض في وسط الموجة. الخلفية (توهج وتعبئة شفافة) تُرسم قبل الخطوط والحد بعدها، فتظهر الموجة تمر من خلاله.
+ * يضيء أكثر حين يمر به رأس الموجة المضيء.
+ */
+private fun DrawScope.drawHeart(time: Float, light: Boolean, front: Boolean) {
+    val width = size.width
+    val height = size.height
+    if (width <= 0f) return
+    val beat = heartBeat(time)
+    val p = sweep(time)
+    val passing = exp(-((p - 0.5f) * (p - 0.5f)) / 0.004f)
+    val heart = height * 0.62f * (1f + 0.13f * beat)
+    val center = Offset(width / 2, height * 0.5f)
+    val color = shiftingColor(time, 0.5f, light, 1f)
+    val path = heartPath(center.x, center.y, heart)
+    if (!front) {
+        val glow = heart * 1.25f
+        drawCircle(
+            Brush.radialGradient(listOf(color.copy(alpha = 0.30f + 0.25f * beat + 0.3f * passing), Color.Transparent), center, glow),
+            glow, center,
+        )
+        drawPath(path, Brush.verticalGradient(listOf(color.copy(alpha = 0.22f), color.copy(alpha = 0.08f)), center.y - heart / 2, center.y + heart / 2))
+    } else {
+        drawPath(path, color.copy(alpha = 0.35f), style = Stroke(4.dp.toPx() * (1f + 0.5f * beat)))
+        drawPath(path, Color.White.copy(alpha = 0.55f + 0.35f * maxOf(beat, passing)), style = Stroke(1.3.dp.toPx()))
     }
 }
 
@@ -364,7 +418,8 @@ fun DrawScope.drawPulseWave(time: Float, light: Boolean, strokeWidth: Float, alp
         while (x <= width) {
             val t = (width - x) / width
             // الخطوط تتباعد كالموجة بعيدًا عن النبضة، وتجتمع عندها فتظهر حادة
-            val pinch = BEATS.maxOf { gauss(t - it, 0.06f) }
+            // تجتمع أيضًا قليلًا عند القلب في الوسط، كأنها تعبر من خلاله
+            val pinch = maxOf(BEATS.maxOf { gauss(t - it, 0.06f) }, 0.5f * gauss(t - 0.5f, 0.07f))
             val spread = height * 0.34f * (1f - pinch) * (0.7f + 0.3f * sin(t * 7f + time * 0.7f))
             val y = pulseCenter(t, time, height) + k * spread
             if (first) path.moveTo(x, y) else path.lineTo(x, y)
