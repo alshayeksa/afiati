@@ -142,3 +142,55 @@ class GreetingsTest {
         assertEquals("وحيدة", com.alshayeksa.afiati.ui.Greetings.pick(listOf("وحيدة"), 12345))
     }
 }
+
+class VitalRangesTest {
+    private val r = com.alshayeksa.afiati.data.VitalRanges
+
+
+    @Test
+    fun bloodPressure() {
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.NORMAL, r.pressure(115.0, 75.0))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.ELEVATED, r.pressure(125.0, 78.0))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.ELEVATED, r.pressure(118.0, 84.0))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.HIGH, r.pressure(145.0, 85.0))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.HIGH, r.pressure(130.0, 95.0))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.VERY_HIGH, r.pressure(185.0, 100.0))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.VERY_HIGH, r.pressure(150.0, 121.0))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.LOW, r.pressure(85.0, 55.0))
+    }
+
+    @Test
+    fun bloodSugar() {
+        val fasting = com.alshayeksa.afiati.data.SugarContext.FASTING
+        val after = com.alshayeksa.afiati.data.SugarContext.AFTER_MEAL
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.NORMAL, r.sugar(90.0, fasting))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.ELEVATED, r.sugar(110.0, fasting))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.HIGH, r.sugar(130.0, fasting))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.NORMAL, r.sugar(130.0, after))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.ELEVATED, r.sugar(180.0, after))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.HIGH, r.sugar(220.0, after))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.LOW, r.sugar(65.0, after))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.VERY_LOW, r.sugar(50.0, fasting))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.VERY_HIGH, r.sugar(320.0, after))
+    }
+
+    @Test
+    fun temperatureAndPulse() {
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.NORMAL, r.temperature(36.8))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.ELEVATED, r.temperature(37.7))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.HIGH, r.temperature(38.5))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.VERY_HIGH, r.temperature(40.0))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.LOW, r.temperature(34.5))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.NORMAL, r.pulse(72))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.LOW, r.pulse(45))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.ELEVATED, r.pulse(110))
+        assertEquals(com.alshayeksa.afiati.data.VitalStatus.HIGH, r.pulse(130))
+    }
+
+    @Test
+    fun urgentReadingsGetAdvice() {
+        assertTrue(r.advice(com.alshayeksa.afiati.data.VitalStatus.VERY_HIGH)!!.contains("997"))
+        assertTrue(r.advice(com.alshayeksa.afiati.data.VitalStatus.VERY_LOW)!!.contains("997"))
+        assertEquals(null, r.advice(com.alshayeksa.afiati.data.VitalStatus.NORMAL))
+    }
+}

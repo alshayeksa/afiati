@@ -81,6 +81,8 @@ class AfiatiDatabase(context: Context) : SQLiteOpenHelper(context, NAME, null, V
             "CREATE INDEX idx_outbox_created ON outbox(created_at)",
             HeartRateRepository.TABLE_SQL,
             HeartRateRepository.INDEX_SQL,
+            VitalsRepository.TABLE_SQL,
+            VitalsRepository.INDEX_SQL,
         ).forEach(db::execSQL)
     }
 
@@ -95,11 +97,16 @@ class AfiatiDatabase(context: Context) : SQLiteOpenHelper(context, NAME, null, V
             // 3: رجل أو امرأة، لصياغة رسائل المساعدة
             db.execSQL("ALTER TABLE patients_local ADD COLUMN gender TEXT")
         }
+        if (oldVersion < 4) {
+            // 4: العلامات الحيوية اليدوية (الضغط، السكر، الحرارة)
+            db.execSQL(VitalsRepository.TABLE_SQL)
+            db.execSQL(VitalsRepository.INDEX_SQL)
+        }
     }
 
     companion object {
         const val NAME = "afiati.db"
-        const val VERSION = 3
+        const val VERSION = 4
     }
 }
 

@@ -106,7 +106,7 @@ fun rememberNow(): Instant {
 }
 
 @Composable
-fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedication: (Medication) -> Unit, onHelp: () -> Unit, onPulse: () -> Unit) {
+fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedication: (Medication) -> Unit, onHelp: () -> Unit, onVitals: () -> Unit) {
     val now = rememberNow()
     val logs = AppModel.todayLogs
     val medications = AppModel.medications
@@ -114,13 +114,11 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
     val take: (DoseLog) -> Unit = { log -> if (AppModel.isEarly(log, now)) confirmEarly = log else AppModel.takeDose(log) }
 
     TabList(header) {
-        item(key = "greeting") { Greeting() }
+        item(key = "greeting") { Greeting(onVitals) }
         // موجة النبض: هوية عافيتي، مدمجة تحت التحية
-        item(key = "pulse-wave") { PulseWave(Modifier.fillMaxWidth().padding(top = 4.dp).height(92.dp)) }
-        // المساعدة والنبض جنبًا إلى جنب: في متناول اليد دون أن يزاحما جرعات اليوم
+        item(key = "pulse-wave") { PulseWave(Modifier.fillMaxWidth().padding(top = 2.dp).height(84.dp)) }
         // زر المساعدة في صفحة «العائلة» حتى لا يُضغط بالخطأ؛ هنا يظهر فقط أثناء طلب جارٍ
         if (AppModel.myHelp != null) item(key = "help-active") { HelpCard(onHelp) }
-        item(key = "pulse") { PulseCard(onPulse) }
 
         if (medications.isEmpty() && logs.isEmpty()) {
             item(key = "empty") {
@@ -134,30 +132,34 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
         }
 
         item(key = "health") { ReminderHealthCard() }
-        // الأهم أولًا: الجرعة الحالية أو القادمة، ثم شريط التزام اليوم
-        item(key = "focus") { FocusCard(logs, now, take) }
-        item(key = "progress") { ProgressCard(logs, now) }
+
+        // جرعات اليوم أولًا: هي ما يحتاج الكبير أن يسجّله
+        item(key = "doses-title") { SectionTitle("جرعات اليوم", Modifier.padding(top = 0.dp)) }
+        if (logs.isEmpty()) {
+            item(key = "no-doses") {
+                EmptyCard("لا جرعات اليوم", "أدويتك الأسبوعية أو الشهرية ليس لها موعد اليوم.")
+            }
+        }
+        logs.groupBy(::period).toSortedMap().forEach { (period, group) ->
+            item(key = "period-${period.name}") {
+                Row(Modifier.padding(horizontal = 22.dp).padding(top = 4.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(period.icon, null, tint = Brand.glow, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(period.title, style = tajawal(17, FontWeight.Bold, Brand.secondaryText))
+                }
+            }
+            items(group, key = { "dose-" + it.id }) { log ->
+                DoseRow(log, doseState(log, now, AppModel.isTaken(log)), onTake = { take(log) }) {
+                    medications.firstOrNull { it.id == log.medicationId }?.let(onOpenMedication)
+                }
+            }
+        }
 
         val low = medications.filter { it.lowStock }
         items(low, key = { "low-" + it.id }) { medication -> LowStockCard(medication) { onOpenMedication(medication) } }
 
-        if (logs.isNotEmpty()) {
-            item(key = "doses-title") { SectionTitle("جرعات اليوم") }
-            logs.groupBy(::period).toSortedMap().forEach { (period, group) ->
-                item(key = "period-${period.name}") {
-                    Row(Modifier.padding(horizontal = 22.dp).padding(top = 6.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(period.icon, null, tint = Brand.glow, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(period.title, style = tajawal(17, FontWeight.Bold, Brand.secondaryText))
-                    }
-                }
-                items(group, key = { "dose-" + it.id }) { log ->
-                    DoseRow(log, doseState(log, now, AppModel.isTaken(log)), onTake = { take(log) }) {
-                        medications.firstOrNull { it.id == log.medicationId }?.let(onOpenMedication)
-                    }
-                }
-            }
-        }
+        // التزام اليوم في الآخر
+        item(key = "progress") { ProgressCard(logs, now) }
     }
 
     confirmEarly?.let { log ->
@@ -171,7 +173,7 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
 }
 
 @Composable
-private fun Greeting() {
+private fun Greeting(onVitals: () -> Unit) {
     val sync = AppModel.sync
     val status: Pair<Color, String>? = when {
         sync.running -> null
@@ -180,12 +182,17 @@ private fun Greeting() {
         sync.status == SyncStatus.OFFLINE -> Brand.warning to "بدون إنترنت · كل شيء يعمل"
         else -> null
     }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        // الاسم في الشريط العلوي، فهنا تحية اليوم من جدول التحيات
-        Text(Greetings.forDay(AppModel.today).trimEnd('.', '،', ' '), style = tajawal(25, FontWeight.Bold, Brand.glow))
-        Text("${Format.gregorianDay(AppModel.today)} · ${Format.hijriDay(AppModel.today)}", style = tajawal(15, color = Brand.secondaryText))
-        // في الحالة العادية لا داعي لسطر «محفوظ»؛ يظهر فقط حين يحتاج انتباهًا
-        status?.let { (color, text) -> StatusLine(color, text, Modifier.padding(top = 4.dp)) }
+    Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 14.dp).padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            // الاسم في الشريط العلوي، فهنا تحية اليوم من جدول التحيات
+            Text(Greetings.forDay(AppModel.today).trimEnd('.', '،', ' '), style = tajawal(25, FontWeight.Bold, Brand.glow))
+            Text("${Format.gregorianDay(AppModel.today)} · ${Format.hijriDay(AppModel.today)}", style = tajawal(15, color = Brand.secondaryText))
+            // في الحالة العادية لا داعي لسطر «محفوظ»؛ يظهر فقط حين يحتاج انتباهًا
+            status?.let { (color, text) -> StatusLine(color, text, Modifier.padding(top = 4.dp)) }
+        }
+        Spacer(Modifier.width(10.dp))
+        // رابط صغير للعلامات الحيوية، يسار التحية
+        VitalsLink(onVitals)
     }
 }
 
@@ -204,7 +211,7 @@ private fun ProgressCard(logs: List<DoseLog>, now: Instant) {
     if (total == 0) return
     val progress = done.toFloat() / total
     Column(
-        Modifier.padding(horizontal = 14.dp).padding(bottom = 14.dp).fillMaxWidth().glass(RoundedCornerShape(22.dp)).padding(horizontal = 18.dp, vertical = 14.dp),
+        Modifier.padding(horizontal = 14.dp).padding(top = 6.dp, bottom = 14.dp).fillMaxWidth().glass(RoundedCornerShape(22.dp)).padding(horizontal = 18.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -217,59 +224,6 @@ private fun ProgressCard(logs: List<DoseLog>, now: Instant) {
                 Modifier.fillMaxWidth(progress).fillMaxHeight().clip(CircleShape)
                     .background(Brush.horizontalGradient(listOf(Brand.glow, Brand.mint))),
             )
-        }
-    }
-}
-
-/** البطاقة الأهم: الجرعة الحالية بزر كبير، أو القادمة، أو تهنئة */
-@Composable
-private fun FocusCard(logs: List<DoseLog>, now: Instant, onTake: (DoseLog) -> Unit) {
-    val states = logs.map { it to doseState(it, now, AppModel.isTaken(it)) }
-    val current = states.firstOrNull { it.second == DoseState.LATE || it.second == DoseState.DUE }
-    val next = states.firstOrNull { it.second == DoseState.UPCOMING }
-    val shape = RoundedCornerShape(28.dp)
-    Column(
-        Modifier.padding(horizontal = 14.dp).padding(top = 14.dp, bottom = 12.dp).fillMaxWidth()
-            .glass(shape, if (current != null) 0.55f else 0.22f).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        when {
-            current != null -> {
-                val (log, state) = current
-                val late = state == DoseState.LATE
-                Text(
-                    if (late) "متأخرة · كان موعدها ${Format.isoTime(log.scheduledAt)}" else "موعدك الآن · ${Format.isoTime(log.scheduledAt)}",
-                    style = tajawal(17, FontWeight.Medium, if (late) Brand.warning else Brand.glow),
-                )
-                Text(log.medicationName, style = tajawal(30, FontWeight.Bold), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(Format.dose(log.doseAmount, log.doseUnit), style = tajawal(19, color = Brand.secondaryText))
-                PrimaryButton("أخذت الدواء", Modifier.padding(top = 10.dp), icon = Icons.Filled.Check) { onTake(log) }
-            }
-            next != null -> {
-                val log = next.first
-                val minutes = runCatching { Duration.between(now, Iso.parse(log.scheduledAt)).toMinutes() }.getOrDefault(0)
-                Text("الجرعة القادمة", style = tajawal(17, FontWeight.Medium, Brand.glow))
-                Text(log.medicationName, style = tajawal(28, FontWeight.Bold), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text("${Format.dose(log.doseAmount, log.doseUnit)} · الساعة ${Format.isoTime(log.scheduledAt)} · ${inTime(minutes)}", style = tajawal(18, color = Brand.secondaryText))
-            }
-            logs.isNotEmpty() -> {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier.size(56.dp).shadow(12.dp, CircleShape, ambientColor = Brand.glow, spotColor = Brand.glow).clip(CircleShape)
-                            .background(Brush.verticalGradient(listOf(Brand.glow, Brand.mint))),
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(Icons.Filled.Check, null, tint = Brand.ink, modifier = Modifier.size(32.dp)) }
-                    Spacer(Modifier.width(14.dp))
-                    Column {
-                        Text("أحسنت!", style = tajawal(26, FontWeight.Bold))
-                        Text("أخذت كل أدوية اليوم. نراك غدًا بإذن الله.", style = tajawal(17, color = Brand.secondaryText))
-                    }
-                }
-            }
-            else -> {
-                Text("لا جرعات اليوم", style = tajawal(24, FontWeight.Bold))
-                Text("أدويتك الأسبوعية أو الشهرية ليس لها موعد اليوم.", style = tajawal(17, color = Brand.secondaryText))
-            }
         }
     }
 }
@@ -340,7 +294,8 @@ fun DoseRow(log: DoseLog, state: DoseState, onTake: (() -> Unit)?, onClick: () -
         DoseState.DUE -> "موعدها الآن" to Brand.glow
         DoseState.LATE -> "متأخرة" to Brand.warning
         DoseState.MISSED -> "فاتت" to Brand.danger
-        DoseState.UPCOMING -> "لم يحن موعدها" to Brand.secondaryText
+        DoseState.UPCOMING -> runCatching { Duration.between(Instant.now(), Iso.parse(log.scheduledAt)).toMinutes() }.getOrNull()
+            ?.takeIf { it in 0..(12 * 60) }?.let(::inTime).orEmpty().ifEmpty { "لم يحن موعدها" } to Brand.secondaryText
     }
     val taken = state == DoseState.TAKEN
     Row(
@@ -357,7 +312,16 @@ fun DoseRow(log: DoseLog, state: DoseState, onTake: (() -> Unit)?, onClick: () -
         Box(Modifier.padding(horizontal = 10.dp).width(1.dp).height(40.dp).background(Brand.text.copy(alpha = 0.12f)))
         Column(Modifier.weight(1f)) {
             Text(log.medicationName, style = tajawal(19, FontWeight.Bold, if (taken) Brand.secondaryText else Brand.text), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("${Format.dose(log.doseAmount, log.doseUnit)} · $stateText", style = tajawal(15, color = stateColor), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (taken) {
+                Text(Format.dose(log.doseAmount, log.doseUnit), style = tajawal(15, color = Brand.secondaryText), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // تهنئة صغيرة مميزة داخل مربع الدواء نفسه
+                Text(
+                    "أحسنت · أخذتها" + (log.takenAt?.let { " " + Format.isoTime(it) } ?: ""),
+                    style = tajawal(13, FontWeight.Bold, Brand.mint), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                Text("${Format.dose(log.doseAmount, log.doseUnit)} · $stateText", style = tajawal(15, color = stateColor), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
         Spacer(Modifier.width(8.dp))
         CheckButton(taken, log.medicationName, onTake)
