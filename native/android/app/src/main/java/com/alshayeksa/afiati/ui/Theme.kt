@@ -56,6 +56,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -108,8 +109,15 @@ private val Tajawal = FontFamily(
 
 /** خط تجوال (ترخيص OFL). الأحجام أكبر من المعتاد لتناسب كبار السن، وتكبر أكثر مع «الخط الكبير». */
 fun tajawal(size: Int, weight: FontWeight = FontWeight.Normal, color: Color = Brand.text): TextStyle {
-    val scaled = if (Appearance.largeText) size * 1.15f else size.toFloat()
-    return TextStyle(fontFamily = Tajawal, fontSize = scaled.sp, fontWeight = weight, color = color, lineHeight = (scaled * 1.4f).sp)
+    // العناوين الكبيرة (23 إلى 40) أهدأ قليلًا، والأرقام الضخمة (عدّاد، نبض) كما هي
+    val base = if (size in 23..40) size * 0.87f else size.toFloat()
+    val scaled = if (Appearance.largeText) base * 1.15f else base
+    return TextStyle(
+        fontFamily = Tajawal, fontSize = scaled.sp, fontWeight = weight, color = color,
+        // مسافة أوسع بين السطور، موزعة فوق السطر وتحته، فلا تتلاصق الأسطر المتتالية
+        lineHeight = (scaled * 1.6f).sp,
+        lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
+    )
 }
 
 /** سمة التطبيق: ألوان المظهر المختار، خط تجوال، واتجاه عربي من اليمين */
