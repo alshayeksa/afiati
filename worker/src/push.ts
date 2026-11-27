@@ -24,9 +24,15 @@ export type Waiter = (promise: Promise<unknown>) => void;
  * Logs the notification now; the network push to Expo is handed to `waitUntil`
  * (ctx.waitUntil) so the HTTP response is not held up by it.
  */
-export async function notifyUser(env: Env, userId: string, notification: Notification, waitUntil: Waiter): Promise<void> {
+export async function notifyUser(
+  env: Env,
+  userId: string,
+  notification: Notification,
+  waitUntil: Waiter,
+  { log = true }: { log?: boolean } = {},
+): Promise<void> {
   const data = { ...notification.data, type: notification.type };
-  await env.DB.prepare(
+  if (log) await env.DB.prepare(
     `INSERT INTO notifications_log (id, user_id, type, title, body, data_json, read, created_at)
      VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
   )

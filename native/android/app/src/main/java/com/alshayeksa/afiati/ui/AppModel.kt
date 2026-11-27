@@ -19,6 +19,8 @@ import com.alshayeksa.afiati.data.SyncState
 import com.alshayeksa.afiati.reminders.Reminders
 import com.alshayeksa.afiati.sync.FamilyApi
 import com.alshayeksa.afiati.sync.FamilyOverview
+import com.alshayeksa.afiati.sync.HelpRequest
+import com.alshayeksa.afiati.sync.HelpSent
 import com.alshayeksa.afiati.sync.NotificationItem
 import com.alshayeksa.afiati.sync.SyncEngine
 import com.alshayeksa.afiati.sync.SyncJobService
@@ -79,6 +81,65 @@ object AppModel {
     /** يزيد كلما عاد التطبيق للواجهة، لإعادة قراءة الأذونات */
     var resumeTick by mutableStateOf(0); private set
 
+    // زر المساعدة
+
+    /** طلبي النشط إن وُجد */
+    var myHelp by mutableStateOf<HelpRequest?>(null); private set
+    /** طلبات مساعدة نشطة ممن أتابعهم */
+    var familyHelp by mutableStateOf<List<HelpRequest>>(emptyList()); private set
+
+    /** رقم للطوارئ يُحفظ على الجوال فقط، للاتصال المباشر ولو بلا إنترنت */
+    var emergencyName by mutableStateOf(""); private set
+    var emergencyPhone by mutableStateOf(""); private set
+
+    fun loadEmergencyContact() {
+        emergencyName = LocalStore.prefs.getString("emergency.name", "").orEmpty()
+        emergencyPhone = LocalStore.prefs.getString("emergency.phone", "").orEmpty()
+    }
+
+    fun saveEmergencyContact(name: String, phone: String) {
+        emergencyName = name.trim()
+        emergencyPhone = phone.trim()
+        LocalStore.prefs.edit().putString("emergency.name", emergencyName).putString("emergency.phone", emergencyPhone).apply()
+    }
+
+    fun refreshHelp() {
+        if (!::app.isInitialized || patient == null) return
+        scope.launch {
+            familyCall { FamilyApi.activeHelp(it) }.onSuccess {
+                myHelp = it.mine
+                familyHelp = it.family
+            }
+        }
+    }
+
+    fun refreshHelpIfRunning() {
+        if (running) refreshHelp()
+    }
+
+    suspend fun sendHelp(): Result<HelpSent> = familyCall { FamilyApi.requestHelp(it) }.onSuccess { myHelp = it.help }
+
+    fun resolveMyHelp(onDone: (String?) -> Unit = {}) {
+        val help = myHelp ?: return onDone(null)
+        scope.launch {
+            familyCall { FamilyApi.resolveHelp(it, help.id) }
+                .onSuccess { myHelp = null; toast = "طمأنّا عائلتك أنك بخير"; onDone(null) }
+                .onFailure { onDone(it.message) }
+        }
+    }
+
+    fun acknowledgeHelp(help: HelpRequest) {
+        scope.launch {
+            familyCall { FamilyApi.acknowledgeHelp(it, help.id) }
+                .onSuccess { updated ->
+                    familyHelp = familyHelp.map { if (it.id == updated.id) updated else it }
+                    toast = if (updated.acknowledgedBy == patient?.id) "أبلغنا ${help.patientName} أنك قادم"
+                    else "${updated.acknowledgedByName ?: "أحد أفراد العائلة"} في طريقه إليه"
+                }
+                .onFailure { toast = it.message }
+        }
+    }
+
     /** فتح شاشة بعينها من إشعار: "family" أو "notifications" */
     var pendingOpen by mutableStateOf<String?>(null)
 
@@ -100,6 +161,7 @@ object AppModel {
         if (::app.isInitialized) return
         app = context.applicationContext
         Db.init(app)
+        loadEmergencyContact()
         scope.launch {
             reload()
             loaded = true
@@ -156,6 +218,7 @@ object AppModel {
             if (patient != null) {
                 afterChange(sync = true)
                 refreshNotifications(quiet = true)
+                refreshHelp()
                 // طلب متابعة أو موافقة وصل والتطبيق في الخلفية
                 if (family != null) refreshFamily()
             }

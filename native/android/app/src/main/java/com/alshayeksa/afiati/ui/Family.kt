@@ -55,6 +55,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
@@ -320,6 +322,12 @@ fun JoinSheet(onDismiss: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var sending by remember { mutableStateOf(false) }
     var done by remember { mutableStateOf<String?>(null) }
+    // لوحة الأرقام تظهر وحدها عند فتح النافذة، فلا يحتاج الكبير للبحث عن مكان الكتابة
+    val codeFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(350)
+        runCatching { codeFocus.requestFocus() }
+    }
 
     fun submit() {
         if (code.length != 6) { error = "أدخل الأرقام الستة كاملة."; return }
@@ -352,6 +360,7 @@ fun JoinSheet(onDismiss: () -> Unit) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 BasicTextField(
                     code, { value -> code = value.filter(Char::isDigit).take(6); error = null },
+                    modifier = Modifier.fillMaxWidth().focusRequester(codeFocus),
                     singleLine = true,
                     cursorBrush = SolidColor(Color.Transparent),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),

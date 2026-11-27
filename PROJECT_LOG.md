@@ -1,5 +1,32 @@
 # Project Log
 
+## 2026-11-27 - Help button (زر المساعدة)
+
+### Change
+- Worker (`worker/src/help.ts`):
+  - `POST /v1/help` creates a request and pushes an urgent alert to every approved relative, whatever privacy level they were given. The alert includes the elder's phone number so they can call. Pressing again while a request is open alerts the family again instead of creating a second request. Limit: 10 requests per hour.
+  - `POST /v1/help/:id/acknowledge` is "I'm coming". The first relative to answer is kept. The elder gets "<name> قادم إليك" and the other relatives are told who responded. Strangers get 404.
+  - `POST /v1/help/:id/resolve` is "I'm fine" (elder only). It is recorded as cancelled if nobody had answered yet, otherwise resolved. The family is told.
+  - `GET /v1/help/active` returns the elder's own active request and active requests of people the user follows (12 hours).
+  - Cron trigger every minute (`wrangler.jsonc`): unanswered requests are pushed again every 2 minutes, up to 5 alerts in total, for one hour. Repeat alerts are not stored again in the notifications list.
+- Android:
+  - A red "أحتاج مساعدة" card on Today shows the current state ("sent", "<name> قادم إليك").
+  - The help screen counts down 5 seconds with "Send now" and "Cancel, I'm fine", then shows a waiting screen and finally "<name> قادم إليك" with an "I'm fine now" button.
+  - The "Call ambulance 997" button and the emergency contact button are always visible and work without internet. They open the dialer and never call by themselves.
+  - New "رقم للطوارئ" setting, kept on the phone only.
+  - Relatives see a pulsing red card at the top of every tab, with "Call" and "I'm coming".
+  - Help alerts use a new "طلبات المساعدة العاجلة" channel with the alarm sound and a long vibration. The notification has "I'm coming" (answers without opening the app) and "Call" buttons. Alerts for one request replace each other instead of piling up.
+- Fixed: the join-code sheet now opens the number keyboard by itself.
+
+### Verification
+- Local end-to-end with the mock Google server: 32/32 passed (urgent push to all relatives including alerts-only, phone number only for relatives, permissions, second press, first responder kept, notifications to the elder and other relatives, resolve and cancel, cron re-alert and its 2-minute spacing, no duplicate stored alerts).
+- Production sync 20/20 and family 26/26 after deploying.
+- Samsung SM-A566B, elder side: help button, 5-second countdown, "sent" screen, a relative answered by API, the phone showed "Khalid قادم إليك" and updated the screen, and "I'm fine now" notified the relative.
+- Samsung, relative side: the phone followed a test elder. Her help request arrived as an urgent notification with "I'm coming" and "Call". Tapping "I'm coming" on the notification answered her request, and she received "Abu Khalid قادم إليك". The in-app red card appeared at the top of the tab.
+
+### Not done
+- Sharing the elder's location with the alert. The server accepts latitude and longitude, but the app does not ask for location permission yet.
+
 ## 2026-11-27 - Family push notifications (Firebase Cloud Messaging)
 
 ### Change

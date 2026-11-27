@@ -45,6 +45,26 @@ data class JoinResult(val status: String, val patientName: String)
 
 class FamilyException(message: String) : Exception(message)
 
+/** طلب مساعدة: من الكبير لعائلته */
+data class HelpRequest(
+    val id: String,
+    val patientId: String,
+    val patientName: String,
+    /** رقم الكبير، يصل لعائلته فقط ليتصلوا به */
+    val patientPhone: String?,
+    val status: String,
+    val message: String?,
+    val acknowledgedBy: String?,
+    val acknowledgedByName: String?,
+    val createdAt: String,
+) {
+    val answered get() = status == "acknowledged"
+}
+
+data class HelpSent(val help: HelpRequest, val notified: Int)
+
+data class ActiveHelp(val mine: HelpRequest?, val family: List<HelpRequest>)
+
 /** ميزات العائلة على الخادم. تحتاج إنترنت، وكل خطأ يصل برسالة عربية واضحة. */
 object FamilyApi {
     const val OFFLINE_MESSAGE = "خاصية العائلة تحتاج اتصالًا بالإنترنت. اتصل بالشبكة لمتابعة ذويك."
@@ -57,6 +77,7 @@ object FamilyApi {
         "forbidden" to "لا تملك صلاحية متابعة هذا الشخص.",
         "request_not_found" to "هذا الطلب لم يعد بانتظار الموافقة.",
         "profile_exists" to "هذا الملف مسجل مسبقًا على جهاز آخر.",
+        "help_not_found" to "طلب المساعدة لم يعد موجودًا.",
     )
 
     private suspend fun call(
@@ -126,6 +147,37 @@ object FamilyApi {
             context, "/v1/family/patients/${URLEncoder.encode(patientId, "UTF-8")}/remind", "POST",
             rateLimitMessage = "أرسلت تذكيرًا قبل قليل. يمكنك الإرسال مرة أخرى بعد 10 دقائق.",
         )
+    }
+
+    private fun help(o: JSONObject) = HelpRequest(
+        id = o.getString("id"),
+        patientId = o.getString("patient_id"),
+        patientName = o.optString("patient_name"),
+        patientPhone = o.nullableString("patient_phone"),
+        status = o.optString("status", "open"),
+        message = o.nullableString("message"),
+        acknowledgedBy = o.nullableString("acknowledged_by"),
+        acknowledgedByName = o.nullableString("acknowledged_by_name"),
+        createdAt = o.optString("created_at"),
+    )
+
+    suspend fun requestHelp(context: Context, message: String? = null): HelpSent {
+        val o = call(
+            context, "/v1/help", "POST", JSONObject().put("message", message ?: JSONObject.NULL),
+            "أرسلت طلبات مساعدة كثيرة. اتصل بعائلتك أو بالإسعاف مباشرة.",
+        )
+        return HelpSent(help(o.getJSONObject("help")), o.optInt("notified"))
+    }
+
+    suspend fun acknowledgeHelp(context: Context, id: String): HelpRequest =
+        help(call(context, "/v1/help/$id/acknowledge", "POST").getJSONObject("help"))
+
+    suspend fun resolveHelp(context: Context, id: String): HelpRequest =
+        help(call(context, "/v1/help/$id/resolve", "POST").getJSONObject("help"))
+
+    suspend fun activeHelp(context: Context): ActiveHelp {
+        val o = call(context, "/v1/help/active")
+        return ActiveHelp(o.optJSONObject("mine")?.let(::help), Json.objects(o.optJSONArray("family")).map(::help))
     }
 
     suspend fun notifications(context: Context): List<NotificationItem> =

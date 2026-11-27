@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -98,6 +99,7 @@ fun HomeScreen() {
     var showProfile by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showNotifications by rememberSaveable { mutableStateOf(false) }
+    var showHelp by rememberSaveable { mutableStateOf(false) }
     var openMedication by remember { mutableStateOf<Medication?>(null) }
     var openPatient by remember { mutableStateOf<FamilyLink?>(null) }
 
@@ -110,6 +112,12 @@ fun HomeScreen() {
                 tab = Tab.FAMILY
                 AppModel.familyFocus++
             }
+            "help" -> {
+                showAdd = false; openPatient = null; showProfile = false; showSettings = false; showNotifications = false; openMedication = null
+                AppModel.refreshHelp()
+                // للكبير: حالة طلبه. لفرد العائلة: بطاقة الطلب أعلى الشاشة
+                if (AppModel.myHelp != null) showHelp = true else tab = Tab.TODAY
+            }
             "notifications" -> {
                 showAdd = false; openPatient = null; showProfile = false; showSettings = false; openMedication = null
                 showNotifications = true
@@ -117,21 +125,25 @@ fun HomeScreen() {
         }
         AppModel.pendingOpen = null
     }
-    // منتصف الليل والتطبيق مفتوح
+    // منتصف الليل والتطبيق مفتوح، ومتابعة طلبات المساعدة الجارية
     LaunchedEffect(Unit) {
+        AppModel.refreshHelp()
+        var ticks = 0
         while (true) {
-            delay(30_000)
-            AppModel.checkDay()
+            delay(15_000)
+            ticks++
+            if (AppModel.myHelp != null || AppModel.familyHelp.isNotEmpty()) AppModel.refreshHelp()
+            if (ticks % 2 == 0) AppModel.checkDay()
         }
     }
-    BackHandler(enabled = tab != Tab.TODAY && !showAdd && openPatient == null) { tab = Tab.TODAY }
+    BackHandler(enabled = tab != Tab.TODAY && !showAdd && !showHelp && openPatient == null) { tab = Tab.TODAY }
 
     val header: @Composable () -> Unit = {
         TopBar(onProfile = { showProfile = true }, onNotifications = { showNotifications = true }, onSettings = { showSettings = true })
     }
     Box(Modifier.fillMaxSize()) {
         when (tab) {
-            Tab.TODAY -> TodayScreen(header, onAdd = { showAdd = true }, onOpenMedication = { openMedication = it })
+            Tab.TODAY -> TodayScreen(header, onAdd = { showAdd = true }, onOpenMedication = { openMedication = it }, onHelp = { showHelp = true })
             Tab.MEDICATIONS -> MedicationsScreen(header, onAdd = { showAdd = true }, onOpen = { openMedication = it })
             Tab.HISTORY -> HistoryScreen(header)
             Tab.FAMILY -> FamilyScreen(header, onOpenPatient = { openPatient = it })
@@ -152,10 +164,13 @@ fun HomeScreen() {
         if (showAdd) {
             AddMedicationScreen(onClose = { showAdd = false })
         }
+        if (showHelp) {
+            HelpScreen(onClose = { showHelp = false })
+        }
         UndoBar(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 92.dp))
     }
 
-    if (!showAdd && openPatient == null) {
+    if (!showAdd && !showHelp && openPatient == null) {
         when {
             showProfile -> ProfileSheet(onDismiss = { showProfile = false })
             showSettings -> SettingsSheet(onDismiss = { showSettings = false })
@@ -171,6 +186,8 @@ fun TabList(header: @Composable () -> Unit, content: LazyListScope.() -> Unit) {
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = top + 6.dp, bottom = 150.dp)) {
         item(key = "top") { header() }
+        // طلبات مساعدة ممن تتابعهم: أعلى كل تبويب حتى يرد أحد
+        items(AppModel.familyHelp, key = { "help-" + it.id }) { FamilyHelpCard(it) }
         content()
     }
 }

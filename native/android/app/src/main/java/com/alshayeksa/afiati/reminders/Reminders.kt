@@ -35,6 +35,7 @@ import java.time.Instant
 object Reminders {
     const val CHANNEL = "medication-reminders"
     const val FAMILY_CHANNEL = "family"
+    const val HELP_CHANNEL = "help"
     private const val PREFS = "reminders"
     private const val KEY_CODES = "codes"
     const val SNOOZE_MINUTES = 10L
@@ -60,7 +61,18 @@ object Reminders {
             description = "طلبات المتابعة والتذكيرات من أفراد العائلة"
             enableVibration(true)
         }
-        context.getSystemService(NotificationManager::class.java)?.createNotificationChannels(listOf(channel, family))
+        // طلبات المساعدة: صوت المنبّه واهتزاز طويل، ويتخطى «عدم الإزعاج» إن سمح المستخدم بذلك
+        val help = NotificationChannel(HELP_CHANNEL, "طلبات المساعدة العاجلة", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "حين يضغط قريبك زر المساعدة، وحين يرد أحد على طلبك"
+            enableVibration(true)
+            vibrationPattern = longArrayOf(0, 800, 300, 800, 300, 800)
+            setBypassDnd(true)
+            setSound(
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
+                AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build(),
+            )
+        }
+        context.getSystemService(NotificationManager::class.java)?.createNotificationChannels(listOf(channel, family, help))
     }
 
     fun canScheduleExact(context: Context): Boolean =

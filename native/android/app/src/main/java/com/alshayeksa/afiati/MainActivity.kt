@@ -73,6 +73,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_OPEN = "open"
         const val OPEN_FAMILY = "family"
         const val OPEN_NOTIFICATIONS = "notifications"
+        const val OPEN_HELP = "help"
     }
 
     override fun onResume() {

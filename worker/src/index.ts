@@ -1,5 +1,6 @@
 import { authenticate, register } from './auth';
 import { isFcmToken } from './fcm';
+import { acknowledgeHelp, activeHelp, escalateHelp, requestHelp, resolveHelp } from './help';
 import {
   createInvitation,
   joinFamily,
@@ -20,6 +21,11 @@ export default {
     } catch (error) {
       return errorResponse(error);
     }
+  },
+
+  // Cron (every minute, see wrangler.jsonc): re-alert family about unanswered help requests.
+  async scheduled(_controller, env, ctx) {
+    await escalateHelp(env, (promise) => ctx.waitUntil(promise));
   },
 } satisfies ExportedHandler<Env>;
 
@@ -82,6 +88,15 @@ async function route(request: Request, env: Env, waitUntil: (promise: Promise<un
     const patientId = requireUuid(patientRoute[1], 'patient id');
     if (method === 'GET' && patientRoute[2] === 'today') return json(await patientDay(request, env, auth, patientId));
     if (method === 'POST' && patientRoute[2] === 'remind') return json(await remindPatient(env, auth, patientId, waitUntil));
+  }
+
+  if (method === 'POST' && pathname === '/v1/help') return json(await requestHelp(request, env, auth, waitUntil), 201);
+  if (method === 'GET' && pathname === '/v1/help/active') return json(await activeHelp(env, auth));
+  const helpRoute = /^\/v1\/help\/([^/]+)\/(acknowledge|resolve)$/.exec(pathname);
+  if (helpRoute && method === 'POST') {
+    const helpId = requireUuid(helpRoute[1], 'help id');
+    if (helpRoute[2] === 'acknowledge') return json(await acknowledgeHelp(env, auth, helpId, waitUntil));
+    return json(await resolveHelp(env, auth, helpId, waitUntil));
   }
 
   if (method === 'GET' && pathname === '/v1/notifications') return json(await listNotifications(env, auth));

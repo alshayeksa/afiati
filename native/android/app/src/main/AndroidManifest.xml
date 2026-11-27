@@ -31,6 +31,7 @@
         </activity>
 
         <receiver android:name=".reminders.ReminderReceiver" android:exported="false" />
+        <receiver android:name=".sync.HelpActionReceiver" android:exported="false" />
 
         <receiver android:name=".reminders.SystemEventsReceiver" android:exported="true">
             <intent-filter>

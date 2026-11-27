@@ -141,6 +141,9 @@ fun SettingsSheet(onDismiss: () -> Unit) {
                 }
             }
 
+            FieldLabel("رقم للطوارئ", Modifier.padding(top = 10.dp))
+            EmergencyContactCard()
+
             FieldLabel("المظهر", Modifier.padding(top = 10.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 ThemeAccent.entries.forEach { accent -> AccentSwatch(accent, Appearance.accent == accent) { Appearance.apply(accent, Appearance.mode) } }
@@ -176,6 +179,23 @@ fun SettingsSheet(onDismiss: () -> Unit) {
                 Text("مساعدك الأمين لمواعيد الأدوية، وطمأنينة لعائلتك.", style = tajawal(16, color = Brand.secondaryText), textAlign = TextAlign.Center)
                 Text("الإصدار ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", style = tajawal(14, color = Brand.secondaryText))
             }
+        }
+    }
+}
+
+/** رقم يتصل به الكبير من شاشة المساعدة بضغطة، ويعمل بلا إنترنت. يبقى على الجوال فقط. */
+@Composable
+private fun EmergencyContactCard() {
+    var name by remember { mutableStateOf(AppModel.emergencyName) }
+    var phone by remember { mutableStateOf(AppModel.emergencyPhone) }
+    val changed = name != AppModel.emergencyName || phone != AppModel.emergencyPhone
+    Column(Modifier.fillMaxWidth().glass(RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("يظهر زر الاتصال به في شاشة المساعدة، ويعمل حتى بدون إنترنت.", style = tajawal(15, color = Brand.secondaryText))
+        GlassField(name, { name = it }, "الاسم (مثلًا: ابني خالد)")
+        GlassField(phone, { phone = it }, "05xxxxxxxx", keyboard = KeyboardOptions(keyboardType = KeyboardType.Phone), ltr = true)
+        GlassButton(if (changed) "حفظ الرقم" else "محفوظ", icon = Icons.Filled.Save, enabled = changed && phone.count(Char::isDigit) >= 3) {
+            AppModel.saveEmergencyContact(name, phone)
+            AppModel.toast = "حُفظ رقم الطوارئ"
         }
     }
 }
