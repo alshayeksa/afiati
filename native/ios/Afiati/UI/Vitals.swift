@@ -9,7 +9,7 @@ func statusColor(_ status: VitalStatus) -> Color {
     }
 }
 
-private func icon(_ type: VitalType) -> String {
+private func vitalIcon(_ type: VitalType) -> String {
     switch type {
     case .pulse: return "waveform.path.ecg"
     case .pressure: return "heart.fill"
@@ -18,7 +18,7 @@ private func icon(_ type: VitalType) -> String {
     }
 }
 
-private func tint(_ type: VitalType) -> Color {
+private func vitalTint(_ type: VitalType) -> Color {
     switch type {
     case .pulse: return Color(hex: 0xFF6B8A)
     case .pressure: return Color(hex: 0xE5484D)
@@ -119,8 +119,8 @@ private struct VitalCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
-                    Image(systemName: icon(type)).font(.system(size: 20)).foregroundColor(tint(type))
-                        .frame(width: 40, height: 40).background(tint(type).opacity(0.16), in: Circle())
+                    Image(systemName: vitalIcon(type)).font(.system(size: 20)).foregroundColor(vitalTint(type))
+                        .frame(width: 40, height: 40).background(vitalTint(type).opacity(0.16), in: Circle())
                     Text(type.title).style(17, .bold).lineLimit(2).minimumScaleFactor(0.8)
                 }
                 if let latest = latest {

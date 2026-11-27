@@ -292,7 +292,7 @@ struct NotificationsSheet: View {
     let onDismiss: () -> Void
     @EnvironmentObject private var model: AppModel
 
-    private func style(_ type: String) -> (String, Color) {
+    private func look(for type: String) -> (String, Color) {
         switch type {
         case "invite_request": return ("person.badge.plus", Color(hex: 0x4D7FB5))
         case "invite_response": return ("heart", Color(hex: 0x1E8E6C))
@@ -315,9 +315,9 @@ struct NotificationsSheet: View {
                     .padding(.vertical, 30)
                 }
                 ForEach(items) { item in
-                    let look = style(item.type)
+                    let kind = look(for: item.type)
                     HStack(spacing: 12) {
-                        IconBadge(icon: look.0, color: look.1, size: 46)
+                        IconBadge(icon: kind.0, color: kind.1, size: 46)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.title).style(18, .bold)
                             Text(item.body).style(16, .regular, Brand.secondaryText)

@@ -150,11 +150,10 @@ jobs:
 
       - name: App record missing
         if: steps.app.outputs.ready != 'true'
-        run: |
-          echo "::error::Create the app in App Store Connect first: My Apps → + → New App → Bundle ID ai.alshaye.afiati, name عافيتي."
-          exit 1
+        run: echo "::warning::TestFlight skipped. Create the app in App Store Connect first (My Apps → + → New App, Bundle ID ai.alshaye.afiati), then run again."
 
       - name: Archive
+        if: steps.app.outputs.ready == 'true'
         run: |
           set -o pipefail
           xcodebuild -project Afiati.xcodeproj -scheme Afiati \
@@ -167,6 +166,7 @@ jobs:
           codesign --force --sign - --timestamp=none --entitlements Afiati/Afiati.entitlements "$app"
 
       - name: Sign for distribution
+        if: steps.app.outputs.ready == 'true'
         run: |
           set -o pipefail
           cat > ExportOptions.plist <<PLIST
@@ -188,6 +188,7 @@ jobs:
           ls -la build/export
 
       - name: Verify push entitlement in the signed app
+        if: steps.app.outputs.ready == 'true'
         run: |
           rm -rf verify && mkdir verify && unzip -q build/export/*.ipa -d verify
           codesign -d --entitlements :- verify/Payload/Afiati.app 2>/dev/null > entitlements.plist
@@ -195,6 +196,7 @@ jobs:
           python3 -c "import json; e=json.load(open('entitlements.json')); print('entitlement keys:', sorted(e)); print('aps-environment:', e.get('aps-environment')); raise SystemExit(0 if e.get('aps-environment') == 'production' else 1)"
 
       - name: Upload to TestFlight
+        if: steps.app.outputs.ready == 'true'
         run: |
           set -o pipefail
           xcrun altool --upload-app -f build/export/*.ipa -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" 2>&1 | tee build-upload.log | tail -15
