@@ -191,8 +191,9 @@ fun FieldLabel(text: String, modifier: Modifier = Modifier) {
 /** عنوان قسم داخل الصفحة */
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
-    Row(modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text, style = tajawal(22, FontWeight.Bold), modifier = Modifier.weight(1f))
+    // أصغر من عنوان الصفحة (26) وأكبر من النص، مع فراغ يفصله عما قبله
+    Row(modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 18.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(text, style = tajawal(19, FontWeight.Bold), modifier = Modifier.weight(1f))
         trailing?.invoke()
     }
 }

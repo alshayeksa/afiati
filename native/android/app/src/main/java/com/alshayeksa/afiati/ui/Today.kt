@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -113,11 +115,19 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
 
     TabList(header) {
         item(key = "greeting") { Greeting() }
-        item(key = "help") { HelpButton(onHelp) }
-        item(key = "pulse") { PulseCard(onPulse) }
-        item(key = "wave") { WaveRibbon(Modifier.fillMaxWidth().padding(top = 2.dp).height(120.dp)) }
+        // المساعدة والنبض جنبًا إلى جنب: في متناول اليد دون أن يزاحما جرعات اليوم
+        item(key = "actions") {
+            Row(
+                Modifier.padding(horizontal = 14.dp).padding(top = 14.dp).fillMaxWidth().height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                HelpTile(Modifier.weight(1f).fillMaxHeight(), onHelp)
+                PulseTile(Modifier.weight(1f).fillMaxHeight(), onPulse)
+            }
+        }
 
         if (medications.isEmpty() && logs.isEmpty()) {
+            item(key = "wave") { WaveRibbon(Modifier.fillMaxWidth().padding(top = 6.dp).height(110.dp)) }
             item(key = "empty") {
                 EmptyCard(
                     "أضف دواءك الأول",
@@ -129,8 +139,9 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
         }
 
         item(key = "health") { ReminderHealthCard() }
-        item(key = "progress") { ProgressCard(logs, now) }
+        // الأهم أولًا: الجرعة الحالية أو القادمة، ثم شريط التزام اليوم
         item(key = "focus") { FocusCard(logs, now, take) }
+        item(key = "progress") { ProgressCard(logs, now) }
 
         val low = medications.filter { it.lowStock }
         items(low, key = { "low-" + it.id }) { medication -> LowStockCard(medication) { onOpenMedication(medication) } }
@@ -167,18 +178,19 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
 @Composable
 private fun Greeting() {
     val sync = AppModel.sync
-    val (color, text) = when {
-        sync.running -> Brand.warning to "جاري المزامنة…"
+    val status: Pair<Color, String>? = when {
+        sync.running -> null
         sync.status == SyncStatus.FAILED -> Brand.danger to "محفوظ على جوالك · تعذّرت المزامنة"
         sync.status == SyncStatus.OFFLINE && sync.pending > 0 -> Brand.warning to "محفوظ على جوالك · يُرفع عند عودة الإنترنت"
         sync.status == SyncStatus.OFFLINE -> Brand.warning to "بدون إنترنت · كل شيء يعمل"
-        else -> Brand.glow to "كل بياناتك محفوظة"
+        else -> null
     }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 18.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         // الاسم في الشريط العلوي، فهنا تحية اليوم من جدول التحيات
-        Text(Greetings.forDay(AppModel.today), style = tajawal(30, FontWeight.Bold, Brand.glow))
-        Text("${Format.gregorianDay(AppModel.today)} · ${Format.hijriDay(AppModel.today)}", style = tajawal(16, color = Brand.secondaryText))
-        StatusLine(color, text, Modifier.padding(top = 6.dp))
+        Text(Greetings.forDay(AppModel.today).trimEnd('.', '،', ' '), style = tajawal(25, FontWeight.Bold, Brand.glow))
+        Text("${Format.gregorianDay(AppModel.today)} · ${Format.hijriDay(AppModel.today)}", style = tajawal(15, color = Brand.secondaryText))
+        // في الحالة العادية لا داعي لسطر «محفوظ»؛ يظهر فقط حين يحتاج انتباهًا
+        status?.let { (color, text) -> StatusLine(color, text, Modifier.padding(top = 4.dp)) }
     }
 }
 
@@ -194,18 +206,22 @@ private fun ProgressCard(logs: List<DoseLog>, now: Instant) {
         done == 0 -> "يومك يبدأ الآن"
         else -> "أحسنت، استمر"
     }
-    Row(
-        Modifier.padding(horizontal = 14.dp).fillMaxWidth().glass(RoundedCornerShape(26.dp)).padding(18.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    if (total == 0) return
+    val progress = done.toFloat() / total
+    Column(
+        Modifier.padding(horizontal = 14.dp).padding(bottom = 14.dp).fillMaxWidth().glass(RoundedCornerShape(22.dp)).padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Column(Modifier.weight(1f)) {
-            Text("التزامك اليوم", style = tajawal(17, color = Brand.secondaryText))
-            Text(message, style = tajawal(23, FontWeight.Bold))
-            Text(if (total == 0) "" else "أخذت $done من $total", style = tajawal(17, color = if (late > 0) Brand.warning else Brand.glow))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(message, style = tajawal(18, FontWeight.Bold), modifier = Modifier.weight(1f))
+            Text("أخذت $done من $total", style = tajawal(16, FontWeight.Medium, if (late > 0) Brand.warning else Brand.glow))
         }
-        Spacer(Modifier.width(12.dp))
-        ProgressRing(if (total == 0) 0f else done.toFloat() / total, 108.dp) {
-            Text(if (total == 0) "—" else "${done * 100 / total}٪", style = tajawal(26, FontWeight.Bold))
+        // شريط التقدم: يمتلئ من اليمين مع اتجاه القراءة
+        Box(Modifier.fillMaxWidth().height(10.dp).clip(CircleShape).background(Brand.text.copy(alpha = 0.08f))) {
+            Box(
+                Modifier.fillMaxWidth(progress).fillMaxHeight().clip(CircleShape)
+                    .background(Brush.horizontalGradient(listOf(Brand.glow, Brand.mint))),
+            )
         }
     }
 }
@@ -218,7 +234,7 @@ private fun FocusCard(logs: List<DoseLog>, now: Instant, onTake: (DoseLog) -> Un
     val next = states.firstOrNull { it.second == DoseState.UPCOMING }
     val shape = RoundedCornerShape(28.dp)
     Column(
-        Modifier.padding(horizontal = 14.dp).padding(top = 12.dp, bottom = 14.dp).fillMaxWidth()
+        Modifier.padding(horizontal = 14.dp).padding(top = 14.dp, bottom = 12.dp).fillMaxWidth()
             .glass(shape, if (current != null) 0.55f else 0.22f).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {

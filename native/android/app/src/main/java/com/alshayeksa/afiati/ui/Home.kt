@@ -216,12 +216,12 @@ fun TabList(header: @Composable () -> Unit, content: LazyListScope.() -> Unit) {
     }
 }
 
-/** عنوان كبير لكل تبويب، مثل اسم التطبيق في موجة */
+/** عنوان كل تبويب: واضح دون أن يطغى على المحتوى، وتحته سطر وصف واحد */
 @Composable
-fun BigTitle(title: String, subtitle: (@Composable () -> Unit)? = null) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 18.dp, bottom = 14.dp)) {
-        Text(title, style = tajawal(32, FontWeight.Bold))
-        subtitle?.invoke()
+fun BigTitle(title: String, subtitle: String? = null) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 14.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(title, style = tajawal(26, FontWeight.Bold))
+        subtitle?.let { Text(it, style = tajawal(15, color = Brand.secondaryText)) }
     }
 }
 

@@ -64,7 +64,7 @@ fun HistoryScreen(header: @Composable () -> Unit) {
 
     TabList(header) {
         item(key = "title") {
-            BigTitle("السجل") { Text("التزامك في آخر 30 يومًا", style = tajawal(17, color = Brand.secondaryText)) }
+            BigTitle("السجل", "التزامك في آخر 30 يومًا")
         }
         item(key = "summary") { Summary(days) }
         item(key = "month") { SectionTitle(Format.monthTitle(selected)) }

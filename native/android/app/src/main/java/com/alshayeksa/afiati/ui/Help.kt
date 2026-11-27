@@ -89,38 +89,37 @@ fun dial(context: Context, phone: String) {
 }
 
 /** زر المساعدة في الشاشة الرئيسية: أحمر واضح، أو حالة الطلب الجاري */
+/** مربع المساعدة في «اليوم»: أحمر واضح، ويعرض حالة الطلب الجاري */
 @Composable
-fun HelpButton(onOpen: () -> Unit) {
+fun HelpTile(modifier: Modifier, onOpen: () -> Unit) {
     val active = AppModel.myHelp
-    val shape = RoundedCornerShape(24.dp)
-    Row(
-        Modifier.padding(horizontal = 14.dp).padding(top = 12.dp).fillMaxWidth()
-            .clip(shape)
-            .background(Brush.horizontalGradient(listOf(Red.copy(alpha = if (active != null) 0.32f else 0.16f), Red.copy(alpha = 0.06f))))
-            .border(1.5.dp, Red.copy(alpha = 0.6f), shape)
+    val shape = RoundedCornerShape(26.dp)
+    Column(
+        modifier.clip(shape)
+            .background(Brush.verticalGradient(listOf(Red.copy(alpha = if (active != null) 0.38f else 0.24f), Red.copy(alpha = 0.08f))))
+            .border(1.5.dp, Red.copy(alpha = 0.65f), shape)
             .clickable(role = Role.Button, onClickLabel = "طلب مساعدة من العائلة", onClick = onOpen)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Box(
-            Modifier.size(52.dp).shadow(12.dp, CircleShape, ambientColor = Red, spotColor = Red).clip(CircleShape)
+            Modifier.size(50.dp).shadow(12.dp, CircleShape, ambientColor = Red, spotColor = Red).clip(CircleShape)
                 .background(Brush.verticalGradient(listOf(Color(0xFFFF6B6F), DeepRed))),
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Filled.Sos, null, tint = Color.White, modifier = Modifier.size(30.dp)) }
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
+        Column {
             when {
                 active == null -> {
-                    Text("أحتاج مساعدة", style = tajawal(21, FontWeight.Bold))
-                    Text("اضغط هنا ليصل تنبيه عاجل لعائلتك", style = tajawal(15, color = Brand.secondaryText))
+                    Text("أحتاج مساعدة", style = tajawal(20, FontWeight.Bold))
+                    Text("تنبيه عاجل لعائلتك", style = tajawal(14, color = Brand.secondaryText))
                 }
                 active.answered -> {
-                    Text("${active.acknowledgedByName ?: "أحد أفراد عائلتك"} ${Gender.pick(active.acknowledgedByGender, "قادم", "قادمة")} إليك", style = tajawal(20, FontWeight.Bold))
-                    Text("اضغط إذا صرت بخير", style = tajawal(15, color = Brand.secondaryText))
+                    Text("${active.acknowledgedByName ?: "أحد أفراد عائلتك"} ${Gender.pick(active.acknowledgedByGender, "قادم", "قادمة")} إليك", style = tajawal(18, FontWeight.Bold), maxLines = 2)
+                    Text("اضغط إذا صرت بخير", style = tajawal(14, color = Brand.secondaryText))
                 }
                 else -> {
-                    Text("طلب المساعدة أُرسل", style = tajawal(20, FontWeight.Bold))
-                    Text("ننتظر رد عائلتك · اضغط للتفاصيل", style = tajawal(15, color = Brand.secondaryText))
+                    Text("أُرسل طلبك", style = tajawal(20, FontWeight.Bold))
+                    Text("ننتظر رد عائلتك", style = tajawal(14, color = Brand.secondaryText))
                 }
             }
         }

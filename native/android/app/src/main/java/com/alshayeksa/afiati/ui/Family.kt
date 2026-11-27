@@ -114,9 +114,7 @@ fun FamilyScreen(header: @Composable () -> Unit, onOpenPatient: (FamilyLink) -> 
 
     TabList(header) {
         item(key = "title") {
-            BigTitle("العائلة") {
-                Text("اطمئنان متبادل بموافقتك، وأنت تختار ما يرونه.", style = tajawal(17, color = Brand.secondaryText))
-            }
+            BigTitle("العائلة", "اطمئنان متبادل بموافقتك، وأنت تختار ما يرونه")
         }
         item(key = "switch") {
             Row(

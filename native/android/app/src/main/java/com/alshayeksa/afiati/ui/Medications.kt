@@ -36,30 +36,22 @@ fun MedicationsScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpen:
 
     TabList(header) {
         item(key = "title") {
-            BigTitle("أدويتي") {
-                Text(
-                    when (medications.size) {
-                        0 -> "لا توجد أدوية بعد"
-                        1 -> "دواء واحد نشط"
-                        2 -> "دواءان نشطان"
-                        in 3..10 -> "${medications.size} أدوية نشطة"
-                        else -> "${medications.size} دواءً نشطًا"
-                    },
-                    style = tajawal(17, color = Brand.secondaryText),
-                )
-            }
+            BigTitle(
+                "أدويتي",
+                when (medications.size) {
+                    0 -> "لا توجد أدوية بعد"
+                    1 -> "دواء واحد نشط · اضغط مطوّلًا لخيارات أكثر"
+                    2 -> "دواءان نشطان · اضغط مطوّلًا لخيارات أكثر"
+                    in 3..10 -> "${medications.size} أدوية نشطة · اضغط مطوّلًا لخيارات أكثر"
+                    else -> "${medications.size} دواءً نشطًا · اضغط مطوّلًا لخيارات أكثر"
+                },
+            )
         }
         if (medications.isEmpty()) {
             item(key = "empty") {
                 EmptyCard("قائمتك فارغة", "أضف أدويتك مرة واحدة، وعافيتي يتولى التذكير والمتابعة.", "إضافة دواء", onAdd)
             }
         } else {
-            item(key = "hint") {
-                Text(
-                    "اسحب البطاقة أو اضغط عليها مطوّلًا لخيارات أكثر.",
-                    style = tajawal(15, color = Brand.secondaryText), modifier = Modifier.padding(horizontal = 22.dp).padding(bottom = 12.dp),
-                )
-            }
             items(medications, key = { it.id }) { medication ->
                 SwipeRow(
                     actions = listOf(
