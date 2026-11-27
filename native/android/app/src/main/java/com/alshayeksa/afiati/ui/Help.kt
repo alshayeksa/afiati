@@ -248,7 +248,12 @@ fun HelpScreen(onClose: () -> Unit) {
                     val answered = help?.answered == true
                     Pulse(if (answered) Icons.Filled.DirectionsRun else Icons.Filled.Check, calm = answered)
                     Text(
-                        if (answered) "${help?.acknowledgedByName ?: "أحد أفراد عائلتك"} ${Gender.pick(help?.acknowledgedByGender, "قادم", "قادمة")} إليك" else "وصل التنبيه إلى عائلتك",
+                        when {
+                            answered -> "${help?.acknowledgedByName ?: "أحد أفراد عائلتك"} ${Gender.pick(help?.acknowledgedByGender, "قادم", "قادمة")} إليك"
+                            // لا أحد يتابعه: لا نقول «وصل» وهو لم يصل لأحد
+                            notified == 0 -> "لم يصل التنبيه لأحد"
+                            else -> "وصل التنبيه إلى عائلتك"
+                        },
                         style = tajawal(28, FontWeight.Bold), textAlign = TextAlign.Center,
                     )
                     Text(
