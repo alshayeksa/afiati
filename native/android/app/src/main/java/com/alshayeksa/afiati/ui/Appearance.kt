@@ -1,5 +1,6 @@
 package com.alshayeksa.afiati.ui
 
+import com.alshayeksa.afiati.tr
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.res.Configuration
@@ -11,18 +12,22 @@ import kotlin.math.max
 import kotlin.math.min
 
 /** لون التطبيق. الأزرق المحيطي يطابق شعار عافيتي، والبقية تُشتق من الألوان الأصلية بتدوير درجة اللون. */
-enum class ThemeAccent(val key: String, val title: String, val hue: Double?, val sat: Double = 1.0, val lift: Double = 0.0) {
-    OCEAN("ocean", "الأزرق المحيطي", 200.0),
-    EMERALD("emerald", "الزمرّدي", null),
-    GOLD("gold", "الذهبي الملكي", 43.0, 0.95),
-    VIOLET("violet", "البنفسجي الليلي", 268.0, 0.9),
-    CORAL("coral", "المرجاني", 352.0, 0.95),
-    PLATINUM("platinum", "البلاتيني", 210.0, 0.12, 0.05),
+enum class ThemeAccent(val key: String, private val ar: String, private val en: String, val hue: Double?, val sat: Double = 1.0, val lift: Double = 0.0) {
+    OCEAN("ocean", "الأزرق المحيطي", "Ocean blue", 200.0),
+    EMERALD("emerald", "الزمرّدي", "Emerald", null),
+    GOLD("gold", "الذهبي الملكي", "Royal gold", 43.0, 0.95),
+    VIOLET("violet", "البنفسجي الليلي", "Midnight violet", 268.0, 0.9),
+    CORAL("coral", "المرجاني", "Coral", 352.0, 0.95),
+    PLATINUM("platinum", "البلاتيني", "Platinum", 210.0, 0.12, 0.05);
+
+    val title get() = tr(ar, en)
 }
 
 /** وضع المظهر: داكن (الأصل)، فاتح، أو يتبع إعداد الجوال */
-enum class ThemeMode(val key: String, val title: String) {
-    DARK("dark", "داكن"), LIGHT("light", "فاتح"), SYSTEM("system", "تلقائي")
+enum class ThemeMode(val key: String, private val ar: String, private val en: String) {
+    DARK("dark", "داكن", "Dark"), LIGHT("light", "فاتح", "Light"), SYSTEM("system", "تلقائي", "Auto");
+
+    val title get() = tr(ar, en)
 }
 
 object LocalStore {

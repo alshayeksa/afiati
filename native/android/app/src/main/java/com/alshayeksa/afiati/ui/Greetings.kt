@@ -3,6 +3,7 @@ package com.alshayeksa.afiati.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.alshayeksa.afiati.Lang
 import com.alshayeksa.afiati.data.Json
 import com.alshayeksa.afiati.sync.Api
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +19,7 @@ import kotlin.random.Random
  */
 object Greetings {
     private const val KEY_LIST = "greetings.list"
+    private const val KEY_LIST_EN = "greetings.list_en"
     private const val KEY_FETCHED = "greetings.fetched_at"
     private const val REFRESH_MS = 12 * 60 * 60 * 1000L
 
@@ -31,15 +33,35 @@ object Greetings {
         "أدام الله عليك نعمة العافية.", "أيامك جميلة بإذن الله.", "أسعد الله قلبك.", "عافيتك تهمنا.", "طاب يومك ودامت عافيتك.",
     )
 
+    /** النسخة الإنجليزية، بنفس ترتيب الجدول */
+    private val bundledEnglish = listOf(
+        "Have a lovely day, and stay well.", "Wishing you health and wellness.", "May your day be happy.",
+        "A day of health and peace of mind.", "Your health is your greatest treasure.",
+        "May you stay well and keep smiling.", "Every day is a beautiful beginning.", "May all your days be healthy.",
+        "Smile, life is beautiful.", "Your health deserves your care.",
+        "May God keep you happy and safe.", "A beautiful day, God willing.", "Your wellness brings joy to those who love you.",
+        "Stay well, always.", "May God keep you healthy.",
+        "A day full of goodness and blessings.", "Take care of yourself, you are precious.", "May all your days be well.",
+        "Your health today is your happiness tomorrow.", "May God protect you for those who love you.",
+        "May God dress you in good health.", "A day of happiness and peace of mind.", "May God grant you health and wellness.",
+        "Wellness is the finest blessing.", "May God keep you safe from all harm.",
+        "May God keep you in good health.", "Your days are beautiful, God willing.", "May God fill your heart with joy.",
+        "Your wellness matters to us.", "Have a good day, and stay well.",
+    )
+
     var list by mutableStateOf(bundled)
         private set
+    var english by mutableStateOf(bundledEnglish)
+        private set
+
+    private fun read(key: String): List<String>? = runCatching { LocalStore.prefs.getString(key, null) }.getOrNull()
+        ?.let { saved -> runCatching { JSONArray(saved) }.getOrNull() }
+        ?.let { array -> (0 until array.length()).map(array::getString).filter { it.isNotBlank() } }
+        ?.takeIf { it.isNotEmpty() }
 
     fun load() {
-        val saved = runCatching { LocalStore.prefs.getString(KEY_LIST, null) }.getOrNull() ?: return
-        runCatching { JSONArray(saved) }.getOrNull()
-            ?.let { array -> (0 until array.length()).map(array::getString).filter { it.isNotBlank() } }
-            ?.takeIf { it.isNotEmpty() }
-            ?.let { list = it }
+        read(KEY_LIST)?.let { list = it }
+        read(KEY_LIST_EN)?.let { english = it }
     }
 
     /** يجلب الجدول من الخادم إن مر وقت كافٍ. الأخطاء تُتجاهل وتبقى القائمة المحفوظة. */
@@ -47,16 +69,24 @@ object Greetings {
         runCatching {
             val last = LocalStore.prefs.getLong(KEY_FETCHED, 0L)
             if (!force && System.currentTimeMillis() - last < REFRESH_MS) return@runCatching
-            val texts = Json.objects(Api.request("/v1/greetings", auth = false).optJSONArray("greetings"))
-                .map { it.optString("text").trim() }.filter { it.isNotEmpty() }
+            val rows = Json.objects(Api.request("/v1/greetings", auth = false).optJSONArray("greetings"))
+            val texts = rows.map { it.optString("text").trim() }.filter { it.isNotEmpty() }
+            // التحيات التي لم تُكتب لها ترجمة لا تظهر في الواجهة الإنجليزية
+            val englishTexts = rows.mapNotNull { row -> row.optString("text_en").trim().takeIf { it.isNotEmpty() && it != "null" } }
             if (texts.isNotEmpty()) {
-                LocalStore.prefs.edit().putString(KEY_LIST, JSONArray(texts).toString()).putLong(KEY_FETCHED, System.currentTimeMillis()).apply()
-                withContext(Dispatchers.Main) { list = texts }
+                LocalStore.prefs.edit()
+                    .putString(KEY_LIST, JSONArray(texts).toString())
+                    .apply { if (englishTexts.isNotEmpty()) putString(KEY_LIST_EN, JSONArray(englishTexts).toString()) }
+                    .putLong(KEY_FETCHED, System.currentTimeMillis()).apply()
+                withContext(Dispatchers.Main) {
+                    list = texts
+                    if (englishTexts.isNotEmpty()) english = englishTexts
+                }
             }
         }
     }
 
-    fun forDay(date: LocalDate): String = pick(list, date.toEpochDay())
+    fun forDay(date: LocalDate): String = pick(if (Lang.english) english else list, date.toEpochDay())
 
     /**
      * ترتيب عشوائي ثابت لكل دورة، والدورة بطول القائمة: كل تحية تظهر مرة واحدة قبل أن تتكرر،

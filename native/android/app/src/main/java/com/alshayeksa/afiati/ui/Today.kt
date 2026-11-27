@@ -1,5 +1,6 @@
 package com.alshayeksa.afiati.ui
 
+import com.alshayeksa.afiati.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -75,11 +76,13 @@ fun doseState(log: DoseLog, now: Instant, takenOverride: Boolean = false): DoseS
 }
 
 /** فترات اليوم لتجميع الجرعات */
-private enum class Period(val title: String, val icon: ImageVector) {
-    MORNING("الصباح", Icons.Outlined.WbSunny),
-    NOON("الظهر", Icons.Outlined.LightMode),
-    EVENING("المساء", Icons.Outlined.WbTwilight),
-    NIGHT("الليل", Icons.Outlined.DarkMode),
+private enum class Period(private val ar: String, private val en: String, val icon: ImageVector) {
+    MORNING("الصباح", "Morning", Icons.Outlined.WbSunny),
+    NOON("الظهر", "Noon", Icons.Outlined.LightMode),
+    EVENING("المساء", "Evening", Icons.Outlined.WbTwilight),
+    NIGHT("الليل", "Night", Icons.Outlined.DarkMode);
+
+    val title get() = tr(ar, en)
 }
 
 private fun period(log: DoseLog): Period {
@@ -123,9 +126,9 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
         if (medications.isEmpty() && logs.isEmpty()) {
             item(key = "empty") {
                 EmptyCard(
-                    "أضف دواءك الأول",
-                    "اكتب اسم الدواء ومواعيده، وسنذكّرك بكل جرعة في وقتها حتى بدون إنترنت.",
-                    "إضافة دواء", onAdd,
+                    tr("أضف دواءك الأول", "Add your first medicine"),
+                    tr("اكتب اسم الدواء ومواعيده، وسنذكّرك بكل جرعة في وقتها حتى بدون إنترنت.", "Type the medicine name and times, and we'll remind you of every dose on time, even offline."),
+                    tr("إضافة دواء", "Add medicine"), onAdd,
                 )
             }
             return@TabList
@@ -134,10 +137,10 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
         item(key = "health") { ReminderHealthCard() }
 
         // جرعات اليوم أولًا: هي ما يحتاج الكبير أن يسجّله
-        item(key = "doses-title") { SectionTitle("جرعات اليوم", Modifier.padding(top = 0.dp)) }
+        item(key = "doses-title") { SectionTitle(tr("جرعات اليوم", "Today's doses"), Modifier.padding(top = 0.dp)) }
         if (logs.isEmpty()) {
             item(key = "no-doses") {
-                EmptyCard("لا جرعات اليوم", "أدويتك الأسبوعية أو الشهرية ليس لها موعد اليوم.")
+                EmptyCard(tr("لا جرعات اليوم", "No doses today"), tr("أدويتك الأسبوعية أو الشهرية ليس لها موعد اليوم.", "Your weekly or monthly medicines aren't scheduled today."))
             }
         }
         logs.groupBy(::period).toSortedMap().forEach { (period, group) ->
@@ -164,10 +167,10 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
 
     confirmEarly?.let { log ->
         AfiatiDialog(
-            title = "موعدها لم يحن بعد",
-            text = "جرعة ${log.medicationName} موعدها ${Format.isoTime(log.scheduledAt)}. هل أخذتها فعلًا الآن؟",
-            confirm = "نعم، أخذتها", onConfirm = { AppModel.takeDose(log); confirmEarly = null },
-            dismiss = "لا", onDismiss = { confirmEarly = null },
+            title = tr("موعدها لم يحن بعد", "It's not time yet"),
+            text = tr("جرعة ${log.medicationName} موعدها ${Format.isoTime(log.scheduledAt)}. هل أخذتها فعلًا الآن؟", "${log.medicationName} is due at ${Format.isoTime(log.scheduledAt)}. Did you really take it now?"),
+            confirm = tr("نعم، أخذتها", "Yes, I took it"), onConfirm = { AppModel.takeDose(log); confirmEarly = null },
+            dismiss = tr("لا", "No"), onDismiss = { confirmEarly = null },
         )
     }
 }
@@ -177,9 +180,9 @@ private fun Greeting(onVitals: () -> Unit) {
     val sync = AppModel.sync
     val status: Pair<Color, String>? = when {
         sync.running -> null
-        sync.status == SyncStatus.FAILED -> Brand.danger to "محفوظ على جوالك · تعذّرت المزامنة"
-        sync.status == SyncStatus.OFFLINE && sync.pending > 0 -> Brand.warning to "محفوظ على جوالك · يُرفع عند عودة الإنترنت"
-        sync.status == SyncStatus.OFFLINE -> Brand.warning to "بدون إنترنت · كل شيء يعمل"
+        sync.status == SyncStatus.FAILED -> Brand.danger to tr("محفوظ على جوالك · تعذّرت المزامنة", "Saved on your phone · sync failed")
+        sync.status == SyncStatus.OFFLINE && sync.pending > 0 -> Brand.warning to tr("محفوظ على جوالك · يُرفع عند عودة الإنترنت", "Saved on your phone · uploads when you're back online")
+        sync.status == SyncStatus.OFFLINE -> Brand.warning to tr("بدون إنترنت · كل شيء يعمل", "Offline · everything still works")
         else -> null
     }
     Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 14.dp).padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -202,11 +205,11 @@ private fun ProgressCard(logs: List<DoseLog>, now: Instant) {
     val done = logs.count { AppModel.isTaken(it) }
     val late = logs.count { doseState(it, now, AppModel.isTaken(it)).let { s -> s == DoseState.LATE || s == DoseState.MISSED } }
     val message = when {
-        total == 0 -> "لا توجد جرعات اليوم"
-        done == total -> "ممتاز! أكملت جرعات اليوم"
-        late > 0 -> if (late == 1) "جرعة واحدة متأخرة" else "$late جرعات متأخرة"
-        done == 0 -> "يومك يبدأ الآن"
-        else -> "أحسنت، استمر"
+        total == 0 -> tr("لا توجد جرعات اليوم", "No doses today")
+        done == total -> tr("ممتاز! أكملت جرعات اليوم", "Excellent! You've completed today's doses")
+        late > 0 -> if (late == 1) tr("جرعة واحدة متأخرة", "One dose is late") else tr("$late جرعات متأخرة", "$late doses are late")
+        done == 0 -> tr("يومك يبدأ الآن", "Your day starts now")
+        else -> tr("أحسنت، استمر", "Well done, keep going")
     }
     if (total == 0) return
     val progress = done.toFloat() / total
@@ -216,7 +219,7 @@ private fun ProgressCard(logs: List<DoseLog>, now: Instant) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(message, style = tajawal(18, FontWeight.Bold), modifier = Modifier.weight(1f))
-            Text("أخذت $done من $total", style = tajawal(16, FontWeight.Medium, if (late > 0) Brand.warning else Brand.glow))
+            Text(tr("أخذت $done من $total", "Took $done of $total"), style = tajawal(16, FontWeight.Medium, if (late > 0) Brand.warning else Brand.glow))
         }
         // شريط التقدم: يمتلئ من اليمين مع اتجاه القراءة
         Box(Modifier.fillMaxWidth().height(10.dp).clip(CircleShape).background(Brand.text.copy(alpha = 0.08f))) {
@@ -229,11 +232,11 @@ private fun ProgressCard(logs: List<DoseLog>, now: Instant) {
 }
 
 private fun inTime(minutes: Long): String = when {
-    minutes < 60 -> "بعد ${minutes.coerceAtLeast(1)} دقيقة"
-    minutes < 120 -> "بعد ساعة"
-    minutes < 180 -> "بعد ساعتين"
-    minutes < 660 -> "بعد ${minutes / 60} ساعات"
-    else -> "بعد ${minutes / 60} ساعة"
+    minutes < 60 -> tr("بعد ${minutes.coerceAtLeast(1)} دقيقة", "in ${minutes.coerceAtLeast(1)} min")
+    minutes < 120 -> tr("بعد ساعة", "in an hour")
+    minutes < 180 -> tr("بعد ساعتين", "in 2 hours")
+    minutes < 660 -> tr("بعد ${minutes / 60} ساعات", "in ${minutes / 60} hours")
+    else -> tr("بعد ${minutes / 60} ساعة", "in ${minutes / 60} hours")
 }
 
 /** تنبيه إذا كانت الإشعارات متوقفة، لأن التذكيرات لن تظهر بدونها */
@@ -262,8 +265,8 @@ private fun ReminderHealthCard() {
         Icon(Icons.Filled.NotificationsOff, null, tint = Brand.danger, modifier = Modifier.size(26.dp))
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("الإشعارات متوقفة", style = tajawal(18, FontWeight.Bold))
-            Text("لن تصلك تذكيرات الأدوية. اضغط هنا لتفعيلها.", style = tajawal(15, color = Brand.secondaryText))
+            Text(tr("الإشعارات متوقفة", "Notifications are off"), style = tajawal(18, FontWeight.Bold))
+            Text(tr("لن تصلك تذكيرات الأدوية. اضغط هنا لتفعيلها.", "You won't get medicine reminders. Tap here to turn them on."), style = tajawal(15, color = Brand.secondaryText))
         }
     }
 }
@@ -274,14 +277,14 @@ private fun LowStockCard(medication: Medication, onOpen: () -> Unit) {
         Modifier.padding(horizontal = 14.dp).padding(bottom = 12.dp).fillMaxWidth()
             .clip(RoundedCornerShape(22.dp)).background(Brand.warning.copy(alpha = 0.12f))
             .border(1.dp, Brand.warning.copy(alpha = 0.45f), RoundedCornerShape(22.dp))
-            .clickable(role = Role.Button, onClickLabel = "إضافة مخزون", onClick = onOpen).padding(16.dp),
+            .clickable(role = Role.Button, onClickLabel = tr("إضافة مخزون", "Add stock"), onClick = onOpen).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(Icons.Filled.Inventory2, null, tint = Brand.warning, modifier = Modifier.size(28.dp))
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("${medication.name} قارب على النفاد", style = tajawal(18, FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("باقي ${medication.stockCount ?: 0} · اضغط إذا اشتريت علبة جديدة", style = tajawal(15, color = Brand.secondaryText))
+            Text(tr("${medication.name} قارب على النفاد", "${medication.name} is running low"), style = tajawal(18, FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(tr("باقي ${medication.stockCount ?: 0} · اضغط إذا اشتريت علبة جديدة", "${medication.stockCount ?: 0} left · tap if you bought a new box"), style = tajawal(15, color = Brand.secondaryText))
         }
     }
 }
@@ -290,18 +293,18 @@ private fun LowStockCard(medication: Medication, onOpen: () -> Unit) {
 @Composable
 fun DoseRow(log: DoseLog, state: DoseState, onTake: (() -> Unit)?, onClick: () -> Unit) {
     val (stateText, stateColor) = when (state) {
-        DoseState.TAKEN -> (log.takenAt?.let { "أُخذت ${Format.isoTime(it)}" } ?: "أُخذت") to Brand.glow
-        DoseState.DUE -> "موعدها الآن" to Brand.glow
-        DoseState.LATE -> "متأخرة" to Brand.warning
-        DoseState.MISSED -> "فاتت" to Brand.danger
+        DoseState.TAKEN -> (log.takenAt?.let { tr("أُخذت ${Format.isoTime(it)}", "Taken ${Format.isoTime(it)}") } ?: tr("أُخذت", "Taken")) to Brand.glow
+        DoseState.DUE -> tr("موعدها الآن", "Due now") to Brand.glow
+        DoseState.LATE -> tr("متأخرة", "Late") to Brand.warning
+        DoseState.MISSED -> tr("فاتت", "Missed") to Brand.danger
         DoseState.UPCOMING -> runCatching { Duration.between(Instant.now(), Iso.parse(log.scheduledAt)).toMinutes() }.getOrNull()
-            ?.takeIf { it in 0..(12 * 60) }?.let(::inTime).orEmpty().ifEmpty { "لم يحن موعدها" } to Brand.secondaryText
+            ?.takeIf { it in 0..(12 * 60) }?.let(::inTime).orEmpty().ifEmpty { tr("لم يحن موعدها", "Not yet due") } to Brand.secondaryText
     }
     val taken = state == DoseState.TAKEN
     Row(
         Modifier.padding(horizontal = 14.dp).padding(bottom = 10.dp).fillMaxWidth()
             .glass(RoundedCornerShape(24.dp), if (state == DoseState.DUE) 0.5f else 0.22f)
-            .clickable(onClickLabel = "تفاصيل ${log.medicationName}", onClick = onClick)
+            .clickable(onClickLabel = tr("تفاصيل ${log.medicationName}", "Details of ${log.medicationName}"), onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -316,7 +319,7 @@ fun DoseRow(log: DoseLog, state: DoseState, onTake: (() -> Unit)?, onClick: () -
                 Text(Format.dose(log.doseAmount, log.doseUnit), style = tajawal(15, color = Brand.secondaryText), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 // تهنئة صغيرة مميزة داخل مربع الدواء نفسه
                 Text(
-                    "أحسنت · أخذتها" + (log.takenAt?.let { " " + Format.isoTime(it) } ?: ""),
+                    tr("أحسنت · أخذتها", "Well done · taken") + (log.takenAt?.let { " " + Format.isoTime(it) } ?: ""),
                     style = tajawal(13, FontWeight.Bold, Brand.mint), maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             } else {
@@ -333,13 +336,13 @@ private fun CheckButton(taken: Boolean, name: String, onTake: (() -> Unit)?) {
     if (taken) {
         Box(
             Modifier.size(54.dp).shadow(10.dp, CircleShape, ambientColor = Brand.glow, spotColor = Brand.glow).clip(CircleShape)
-                .background(Brush.verticalGradient(listOf(Brand.glow, Brand.mint))).semantics { contentDescription = "أُخذت" },
+                .background(Brush.verticalGradient(listOf(Brand.glow, Brand.mint))).semantics { contentDescription = tr("أُخذت", "Taken") },
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Filled.Check, null, tint = Brand.ink, modifier = Modifier.size(30.dp)) }
     } else if (onTake != null) {
         Box(
-            Modifier.size(54.dp).glass(CircleShape, 0.45f).clickable(role = Role.Button, onClickLabel = "أخذت $name", onClick = onTake)
-                .semantics { contentDescription = "تسجيل أخذ $name" },
+            Modifier.size(54.dp).glass(CircleShape, 0.45f).clickable(role = Role.Button, onClickLabel = tr("أخذت $name", "I took $name"), onClick = onTake)
+                .semantics { contentDescription = tr("تسجيل أخذ $name", "Mark $name as taken") },
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Filled.Check, null, tint = Brand.glow, modifier = Modifier.size(28.dp)) }
     } else {

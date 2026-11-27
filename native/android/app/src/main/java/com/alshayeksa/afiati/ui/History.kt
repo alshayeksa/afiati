@@ -1,5 +1,6 @@
 package com.alshayeksa.afiati.ui
 
+import com.alshayeksa.afiati.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -64,7 +65,7 @@ fun HistoryScreen(header: @Composable () -> Unit) {
 
     TabList(header) {
         item(key = "title") {
-            BigTitle("السجل", "التزامك في آخر 30 يومًا")
+            BigTitle(tr("السجل", "History"), tr("التزامك في آخر 30 يومًا", "Your adherence over the last 30 days"))
         }
         item(key = "summary") { Summary(days) }
         item(key = "month") { SectionTitle(Format.monthTitle(selected)) }
@@ -77,13 +78,13 @@ fun HistoryScreen(header: @Composable () -> Unit) {
         }
         val selectedLogs = byDay[selected].orEmpty()
         item(key = "day-title") {
-            SectionTitle(if (selected == today) "اليوم" else "${Format.weekdayNames[com.alshayeksa.afiati.data.Schedule.weekday(selected)]} ${selected.dayOfMonth}",
+            SectionTitle(if (selected == today) tr("اليوم", "Today") else "${Format.weekdayNames[com.alshayeksa.afiati.data.Schedule.weekday(selected)]} ${selected.dayOfMonth}",
                          Modifier.padding(top = 14.dp))
         }
         if (selectedLogs.isEmpty()) {
             item(key = "day-empty") {
                 Text(
-                    "لا توجد جرعات مسجلة في هذا اليوم.", style = tajawal(17, color = Brand.secondaryText), textAlign = TextAlign.Center,
+                    tr("لا توجد جرعات مسجلة في هذا اليوم.", "No doses were logged on this day."), style = tajawal(17, color = Brand.secondaryText), textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = 14.dp).fillMaxWidth().glass(RoundedCornerShape(24.dp)).padding(22.dp),
                 )
             }
@@ -109,9 +110,9 @@ private fun Summary(days: List<DayStat>) {
     val todayComplete = days.firstOrNull()?.let { it.total > 0 && it.taken == it.total } == true
     val streak = days.drop(1).takeWhile { it.total > 0 && it.taken == it.total }.size + if (todayComplete) 1 else 0
     Row(Modifier.padding(horizontal = 14.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        StatCard("آخر 7 أيام", week?.let { "$it٪" } ?: "—", Modifier.weight(1f))
-        StatCard("آخر 30 يومًا", month?.let { "$it٪" } ?: "—", Modifier.weight(1f))
-        StatCard("أيام كاملة متتالية", "$streak", Modifier.weight(1f))
+        StatCard(tr("آخر 7 أيام", "Last 7 days"), week?.let { tr("$it٪", "$it%") } ?: "—", Modifier.weight(1f))
+        StatCard(tr("آخر 30 يومًا", "Last 30 days"), month?.let { tr("$it٪", "$it%") } ?: "—", Modifier.weight(1f))
+        StatCard(tr("أيام كاملة متتالية", "Full days in a row"), "$streak", Modifier.weight(1f))
     }
 }
 
@@ -139,10 +140,10 @@ private fun DayCell(day: DayStat, selected: Boolean, isToday: Boolean, onClick: 
     val background = if (selected) Modifier.background(Brush.verticalGradient(listOf(Brand.mint.copy(alpha = 0.8f), Brand.deepGreen.copy(alpha = 0.9f))), shape) else Modifier
     Column(
         Modifier.width(64.dp).then(background).glass(shape, if (selected) 0.6f else if (isToday) 0.4f else 0.18f)
-            .clickable(role = Role.Button, onClickLabel = "عرض يوم ${day.date.dayOfMonth}", onClick = onClick).padding(vertical = 12.dp),
+            .clickable(role = Role.Button, onClickLabel = tr("عرض يوم ${day.date.dayOfMonth}", "Show day ${day.date.dayOfMonth}"), onClick = onClick).padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(if (isToday) "اليوم" else Format.shortWeekday(day.date), style = tajawal(13, FontWeight.Medium, if (selected) Brand.text else Brand.secondaryText), maxLines = 1)
+        Text(if (isToday) tr("اليوم", "Today") else Format.shortWeekday(day.date), style = tajawal(13, FontWeight.Medium, if (selected) Brand.text else Brand.secondaryText), maxLines = 1)
         Text("${day.date.dayOfMonth}", style = tajawal(24, FontWeight.Bold))
         Spacer(Modifier.height(4.dp))
         Box(Modifier.size(10.dp).background(dot, CircleShape))

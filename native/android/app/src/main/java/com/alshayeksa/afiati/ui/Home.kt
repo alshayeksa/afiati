@@ -1,5 +1,7 @@
 package com.alshayeksa.afiati.ui
 
+import com.alshayeksa.afiati.Lang
+import com.alshayeksa.afiati.tr
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.snapshotFlow
 import com.alshayeksa.afiati.MainActivity
@@ -57,6 +59,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
@@ -220,6 +223,20 @@ fun TabList(header: @Composable () -> Unit, content: LazyListScope.() -> Unit) {
     }
 }
 
+/** زر اللغة في الشريط العلوي: «E» يحوّل إلى الإنجليزية، و«ع» يعيد العربية */
+@Composable
+private fun LanguageButton() {
+    val context = LocalContext.current
+    Box(
+        Modifier.clip(CircleShape)
+            .clickable(role = Role.Button, onClickLabel = tr("English", "العربية")) { AppModel.setLanguage(context, !Lang.english) }
+            .padding(horizontal = 9.dp, vertical = 6.dp).size(width = 24.dp, height = 30.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(if (Lang.english) "ع" else "E", style = tajawal(19, FontWeight.Bold, Brand.glow))
+    }
+}
+
 /** عنوان كل تبويب: واضح دون أن يطغى على المحتوى، وتحته سطر وصف واحد */
 @Composable
 fun BigTitle(title: String, subtitle: String? = null) {
@@ -235,7 +252,7 @@ private fun TopBar(onProfile: () -> Unit, onNotifications: () -> Unit, onAbout: 
     Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         // اسم المستخدم: يفتح ملفه
         Row(
-            Modifier.glass(CircleShape).clickable(role = Role.Button, onClickLabel = "ملفي", onClick = onProfile)
+            Modifier.glass(CircleShape).clickable(role = Role.Button, onClickLabel = tr("ملفي", "My profile"), onClick = onProfile)
                 .padding(start = 5.dp, end = 14.dp, top = 5.dp, bottom = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -248,7 +265,7 @@ private fun TopBar(onProfile: () -> Unit, onNotifications: () -> Unit, onAbout: 
         Row(Modifier.glass(CircleShape).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Box {
                 Icon(
-                    Icons.Outlined.Notifications, "الإشعارات", tint = Brand.glow,
+                    Icons.Outlined.Notifications, tr("الإشعارات", "Notifications"), tint = Brand.glow,
                     modifier = Modifier.clip(CircleShape).clickable(role = Role.Button, onClick = onNotifications).padding(9.dp).size(24.dp),
                 )
                 if (AppModel.unreadCount > 0) {
@@ -257,12 +274,14 @@ private fun TopBar(onProfile: () -> Unit, onNotifications: () -> Unit, onAbout: 
             }
             Box(Modifier.padding(horizontal = 3.dp).width(1.dp).height(18.dp).background(Brand.text.copy(alpha = 0.2f)))
             Icon(
-                Icons.Outlined.Info, "عن التطبيق", tint = Brand.text,
+                Icons.Outlined.Info, tr("عن التطبيق", "About"), tint = Brand.text,
                 modifier = Modifier.clip(CircleShape).clickable(role = Role.Button, onClick = onAbout).padding(9.dp).size(24.dp),
             )
             Box(Modifier.padding(horizontal = 3.dp).width(1.dp).height(18.dp).background(Brand.text.copy(alpha = 0.2f)))
+            LanguageButton()
+            Box(Modifier.padding(horizontal = 3.dp).width(1.dp).height(18.dp).background(Brand.text.copy(alpha = 0.2f)))
             Icon(
-                Icons.Filled.Settings, "الإعدادات", tint = Brand.text,
+                Icons.Filled.Settings, tr("الإعدادات", "Settings"), tint = Brand.text,
                 modifier = Modifier.clip(CircleShape).clickable(role = Role.Button, onClick = onSettings).padding(9.dp).size(24.dp)
                     .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                     .drawWithContent {
@@ -281,10 +300,10 @@ private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit, onAdd: () -> Unit, modifie
             Modifier.weight(1f).clip(CircleShape).background(Brand.tone(0x0A1512).copy(alpha = 0.92f)).glass(CircleShape).padding(5.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            TabButton("اليوم", Icons.Filled.Today, tab == Tab.TODAY, Modifier.weight(1f)) { onTab(Tab.TODAY) }
-            TabButton("أدويتي", Icons.Filled.Medication, tab == Tab.MEDICATIONS, Modifier.weight(1f)) { onTab(Tab.MEDICATIONS) }
-            TabButton("السجل", Icons.Filled.BarChart, tab == Tab.HISTORY, Modifier.weight(1f)) { onTab(Tab.HISTORY) }
-            TabButton("العائلة", Icons.Filled.Diversity1, tab == Tab.FAMILY, Modifier.weight(1f), badge = (AppModel.family?.pending?.size ?: 0) > 0) { onTab(Tab.FAMILY) }
+            TabButton(tr("اليوم", "Today"), Icons.Filled.Today, tab == Tab.TODAY, Modifier.weight(1f)) { onTab(Tab.TODAY) }
+            TabButton(tr("أدويتي", "Medicines"), Icons.Filled.Medication, tab == Tab.MEDICATIONS, Modifier.weight(1f)) { onTab(Tab.MEDICATIONS) }
+            TabButton(tr("السجل", "History"), Icons.Filled.BarChart, tab == Tab.HISTORY, Modifier.weight(1f)) { onTab(Tab.HISTORY) }
+            TabButton(tr("العائلة", "Family"), Icons.Filled.Diversity1, tab == Tab.FAMILY, Modifier.weight(1f), badge = (AppModel.family?.pending?.size ?: 0) > 0) { onTab(Tab.FAMILY) }
         }
         val density = LocalDensity.current
         Box(
@@ -299,10 +318,10 @@ private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit, onAdd: () -> Unit, modifie
                     )
                 )
                 .border(1.dp, Color.White.copy(alpha = 0.6f), CircleShape)
-                .clickable(role = Role.Button, onClickLabel = "إضافة دواء", onClick = onAdd),
+                .clickable(role = Role.Button, onClickLabel = tr("إضافة دواء", "Add medicine"), onClick = onAdd),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.Add, "إضافة دواء", tint = Brand.ink, modifier = Modifier.size(34.dp))
+            Icon(Icons.Filled.Add, tr("إضافة دواء", "Add medicine"), tint = Brand.ink, modifier = Modifier.size(34.dp))
         }
     }
 }
@@ -347,9 +366,9 @@ private fun UndoBar(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (pending != null) {
-                Text("سُجّلت جرعة ${pending.medicationName}", style = tajawal(17, FontWeight.Medium), modifier = Modifier.weight(1f), maxLines = 2)
+                Text(tr("سُجّلت جرعة ${pending.medicationName}", "${pending.medicationName} dose logged"), style = tajawal(17, FontWeight.Medium), modifier = Modifier.weight(1f), maxLines = 2)
                 Text(
-                    "تراجع", style = tajawal(18, FontWeight.Bold, Brand.glow),
+                    tr("تراجع", "Undo"), style = tajawal(18, FontWeight.Bold, Brand.glow),
                     modifier = Modifier.clip(CircleShape).clickable(role = Role.Button) { AppModel.undoTake() }.padding(horizontal = 12.dp, vertical = 6.dp),
                 )
             } else if (toast != null) {

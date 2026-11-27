@@ -1,5 +1,7 @@
 package com.alshayeksa.afiati.ui
 
+import com.alshayeksa.afiati.Lang
+import com.alshayeksa.afiati.tr
 import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,7 +57,7 @@ object AppModel {
     /** خطأ غير متوقع لا يوقف التطبيق: يُسجَّل ويظهر للمستخدم رسالة هادئة، والبيانات المحفوظة لا تتأثر */
     private val errors = CoroutineExceptionHandler { _, error ->
         Log.e("Afiati", "unexpected error", error)
-        toast = "حدث خطأ غير متوقع. حاول مرة أخرى."
+        toast = tr("حدث خطأ غير متوقع. حاول مرة أخرى.", "Something unexpected happened. Try again.")
     }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate + errors)
     @Volatile private var running = false
@@ -99,6 +101,18 @@ object AppModel {
         emergencyPhone = LocalStore.prefs.getString("emergency.phone", "").orEmpty()
     }
 
+    /** يغيّر لغة الواجهة: تُعاد تسمية قنوات الإشعارات، ويعرف الخادم اللغة في المزامنة القادمة لرسائل العائلة */
+    fun setLanguage(context: Context, english: Boolean) {
+        Lang.set(context, english)
+        runCatching { Reminders.createChannel(context) }
+        if (::app.isInitialized && patient != null) {
+            scope.launch {
+                runCatching { Reminders.reschedule(app) }
+                syncNow()
+            }
+        }
+    }
+
     fun saveEmergencyContact(name: String, phone: String) {
         emergencyName = name.trim()
         emergencyPhone = phone.trim()
@@ -129,7 +143,7 @@ object AppModel {
         val help = myHelp ?: return onDone(null)
         scope.launch {
             familyCall { FamilyApi.resolveHelp(it, help.id) }
-                .onSuccess { myHelp = null; toast = "طمأنّا عائلتك أنك بخير"; onDone(null) }
+                .onSuccess { myHelp = null; toast = tr("طمأنّا عائلتك أنك بخير", "We told your family you're okay"); onDone(null) }
                 .onFailure { onDone(it.message) }
         }
     }
@@ -139,8 +153,8 @@ object AppModel {
             familyCall { FamilyApi.acknowledgeHelp(it, help.id) }
                 .onSuccess { updated ->
                     familyHelp = familyHelp.map { if (it.id == updated.id) updated else it }
-                    toast = if (updated.acknowledgedBy == patient?.id) "أبلغنا ${help.patientName} أنك قادم"
-                    else "${updated.acknowledgedByName ?: "أحد أفراد العائلة"} ${Gender.pick(updated.acknowledgedByGender, "في طريقه", "في طريقها")} ${Gender.pick(help.patientGender, "إليه", "إليها")}"
+                    toast = if (updated.acknowledgedBy == patient?.id) tr("أبلغنا ${help.patientName} أنك قادم", "We told ${help.patientName} you're coming")
+                    else tr("${updated.acknowledgedByName ?: "أحد أفراد العائلة"} ${Gender.pick(updated.acknowledgedByGender, "في طريقه", "في طريقها")} ${Gender.pick(help.patientGender, "إليه", "إليها")}", "${updated.acknowledgedByName ?: "A family member"} is on the way")
                 }
                 .onFailure { toast = it.message }
         }
@@ -278,7 +292,7 @@ object AppModel {
             withContext(Dispatchers.IO) { PatientRepository.update(name, phone, email, gender) }
             reload()
             afterChange(sync = true, reminders = false)
-            toast = "حُفظت بياناتك"
+            toast = tr("حُفظت بياناتك", "Your details were saved")
         }
     }
 
@@ -295,7 +309,7 @@ object AppModel {
             withContext(Dispatchers.IO) { MedicationRepository.add(id, draft) }
             reload()
             afterChange(sync = true)
-            toast = "أُضيف ${draft.name} وستصلك تذكيراته"
+            toast = tr("أُضيف ${draft.name} وستصلك تذكيراته", "${draft.name} added; you'll get its reminders")
         }
     }
 
@@ -305,7 +319,7 @@ object AppModel {
             withContext(Dispatchers.IO) { MedicationRepository.deactivate(id, medication.id) }
             reload()
             afterChange(sync = true)
-            toast = "أُوقف ${medication.name}"
+            toast = tr("أُوقف ${medication.name}", "${medication.name} stopped")
         }
     }
 
@@ -319,7 +333,7 @@ object AppModel {
             }
             reload()
             afterChange(sync = true, reminders = false)
-            toast = "أُضيف $amount إلى مخزون ${medication.name}"
+            toast = tr("أُضيف $amount إلى مخزون ${medication.name}", "Added $amount to ${medication.name} stock")
         }
     }
 
@@ -374,7 +388,7 @@ object AppModel {
                 family = FamilyApi.overview(app)
                 familyError = null
             } catch (error: Exception) {
-                familyError = error.message ?: "تعذر تحميل العائلة."
+                familyError = error.message ?: tr("تعذر تحميل العائلة.", "Couldn't load family.")
             } finally {
                 familyLoading = false
             }

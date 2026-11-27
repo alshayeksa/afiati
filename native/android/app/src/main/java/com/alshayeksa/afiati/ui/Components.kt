@@ -1,5 +1,7 @@
 package com.alshayeksa.afiati.ui
 
+import com.alshayeksa.afiati.Lang
+import com.alshayeksa.afiati.tr
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -155,7 +157,7 @@ fun GlassField(
 /** قالب النوافذ السفلية: خلفية داكنة، عنوان، وزر إغلاق */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AfiatiSheet(title: String?, onDismiss: () -> Unit, closeTitle: String = "تم", content: @Composable ColumnScope.() -> Unit) {
+fun AfiatiSheet(title: String?, onDismiss: () -> Unit, closeTitle: String = tr("تم", "Done"), content: @Composable ColumnScope.() -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -163,7 +165,7 @@ fun AfiatiSheet(title: String?, onDismiss: () -> Unit, closeTitle: String = "ت�
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         dragHandle = null,
     ) {
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl, LocalTextStyle provides tajawal(18)) {
+        CompositionLocalProvider(LocalLayoutDirection provides Lang.direction, LocalTextStyle provides tajawal(18)) {
             Column(Modifier.fillMaxWidth().imePadding()) {
                 if (title != null) {
                     Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 20.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -283,12 +285,12 @@ fun SwipeRow(actions: List<RowAction>, clickLabel: String, onClick: () -> Unit, 
 @Composable
 fun Stepper(value: String, onMinus: () -> Unit, onPlus: () -> Unit, minusEnabled: Boolean = true, plusEnabled: Boolean = true, caption: String? = null) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        StepButton(Icons.Filled.Add, "زيادة", plusEnabled, onPlus)
+        StepButton(Icons.Filled.Add, tr("زيادة", "Increase"), plusEnabled, onPlus)
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(value, style = tajawal(46, FontWeight.Bold), textAlign = TextAlign.Center)
             if (caption != null) Text(caption, style = tajawal(16, color = Brand.secondaryText), textAlign = TextAlign.Center)
         }
-        StepButton(Icons.Filled.Remove, "إنقاص", minusEnabled, onMinus)
+        StepButton(Icons.Filled.Remove, tr("إنقاص", "Decrease"), minusEnabled, onMinus)
     }
 }
 

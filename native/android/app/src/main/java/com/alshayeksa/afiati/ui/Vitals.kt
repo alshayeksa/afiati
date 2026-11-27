@@ -1,5 +1,6 @@
 package com.alshayeksa.afiati.ui
 
+import com.alshayeksa.afiati.tr
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -96,13 +97,13 @@ private data class Latest(val value: String, val status: VitalStatus, val time: 
 @Composable
 fun VitalsLink(onOpen: () -> Unit) {
     Column(
-        Modifier.clip(RoundedCornerShape(18.dp)).clickable(role = Role.Button, onClickLabel = "العلامات الحيوية", onClick = onOpen)
+        Modifier.clip(RoundedCornerShape(18.dp)).clickable(role = Role.Button, onClickLabel = tr("العلامات الحيوية", "Vital signs"), onClick = onOpen)
             .glass(RoundedCornerShape(18.dp)).padding(horizontal = 10.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(Icons.Filled.MonitorHeart, null, tint = Brand.glow, modifier = Modifier.size(24.dp))
-        Text("العلامات", style = tajawal(12, FontWeight.Medium, Brand.secondaryText))
-        Text("الحيوية", style = tajawal(12, FontWeight.Medium, Brand.secondaryText))
+        Text(tr("العلامات", "Vital"), style = tajawal(12, FontWeight.Medium, Brand.secondaryText))
+        Text(tr("الحيوية", "signs"), style = tajawal(12, FontWeight.Medium, Brand.secondaryText))
     }
 }
 
@@ -116,7 +117,7 @@ fun VitalsScreen(onClose: () -> Unit, onPulse: () -> Unit) {
         value = if (patientId == null) emptyMap() else withContext(Dispatchers.IO) {
             buildMap {
                 runCatching { HeartRateRepository.recent(patientId, 1).firstOrNull() }.getOrNull()?.let {
-                    put(VitalType.PULSE, Latest("${it.bpm}", VitalRanges.pulse(it.bpm), readingTime(it.measuredAt), "بالكاميرا"))
+                    put(VitalType.PULSE, Latest("${it.bpm}", VitalRanges.pulse(it.bpm), readingTime(it.measuredAt), tr("بالكاميرا", "camera")))
                 }
                 for (type in listOf(VitalType.PRESSURE, VitalType.SUGAR, VitalType.TEMPERATURE)) {
                     runCatching { VitalsRepository.recent(patientId, type, 1).firstOrNull() }.getOrNull()?.let {
@@ -131,9 +132,9 @@ fun VitalsScreen(onClose: () -> Unit, onPulse: () -> Unit) {
     FullScreen {
         val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         Row(Modifier.fillMaxWidth().padding(top = top + 10.dp).padding(start = 20.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("العلامات الحيوية", style = tajawal(26, FontWeight.Bold), modifier = Modifier.weight(1f))
+            Text(tr("العلامات الحيوية", "Vital signs"), style = tajawal(26, FontWeight.Bold), modifier = Modifier.weight(1f))
             Text(
-                "إغلاق", style = tajawal(18, FontWeight.Medium, Brand.glow),
+                tr("إغلاق", "Close"), style = tajawal(18, FontWeight.Medium, Brand.glow),
                 modifier = Modifier.clip(CircleShape).clickable(role = Role.Button, onClick = onClose).padding(horizontal = 12.dp, vertical = 8.dp),
             )
         }
@@ -141,7 +142,7 @@ fun VitalsScreen(onClose: () -> Unit, onPulse: () -> Unit) {
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp).padding(top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("اضغط على أي علامة لتسجّل قراءة جديدة أو ترى قراءاتك السابقة.", style = tajawal(15, color = Brand.secondaryText), modifier = Modifier.padding(horizontal = 6.dp))
+            Text(tr("اضغط على أي علامة لتسجّل قراءة جديدة أو ترى قراءاتك السابقة.", "Tap any sign to add a new reading or see your previous readings."), style = tajawal(15, color = Brand.secondaryText), modifier = Modifier.padding(horizontal = 6.dp))
             listOf(VitalType.PULSE to VitalType.PRESSURE, VitalType.SUGAR to VitalType.TEMPERATURE).forEach { (a, b) ->
                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     VitalCard(a, latest[a], Modifier.weight(1f).fillMaxHeight()) { if (a == VitalType.PULSE) onPulse() else entry = a }
@@ -149,7 +150,7 @@ fun VitalsScreen(onClose: () -> Unit, onPulse: () -> Unit) {
                 }
             }
             Text(
-                "للمتابعة فقط، وليست تشخيصًا طبيًا. القراءات محفوظة على جوالك.",
+                tr("للمتابعة فقط، وليست تشخيصًا طبيًا. القراءات محفوظة على جوالك.", "For tracking only, not a medical diagnosis. Readings are saved on your phone."),
                 style = tajawal(14, color = Brand.secondaryText), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
             )
         }
@@ -172,7 +173,7 @@ private fun VitalCard(type: VitalType, latest: Latest?, modifier: Modifier, onCl
         }
         if (latest == null) {
             Text("—", style = tajawal(30, FontWeight.Bold, Brand.secondaryText))
-            Text(if (type == VitalType.PULSE) "اضغط للقياس بالكاميرا" else "اضغط لتسجيل قراءة", style = tajawal(14, color = Brand.glow))
+            Text(if (type == VitalType.PULSE) tr("اضغط للقياس بالكاميرا", "Tap to measure with the camera") else tr("اضغط لتسجيل قراءة", "Tap to add a reading"), style = tajawal(14, color = Brand.glow))
         } else {
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(latest.value, style = tajawal(30, FontWeight.Bold))
@@ -223,52 +224,52 @@ private fun VitalEntrySheet(type: VitalType, onDismiss: () -> Unit) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             when (type) {
                 VitalType.PRESSURE -> {
-                    Text("اكتب الرقمين كما يظهران في جهاز الضغط", style = tajawal(16, color = Brand.secondaryText))
+                    Text(tr("اكتب الرقمين كما يظهران في جهاز الضغط", "Type both numbers as shown on the blood pressure monitor"), style = tajawal(16, color = Brand.secondaryText))
                     // من اليسار إلى اليمين كما يُكتب الضغط وكما يظهر في الجهاز: 120 / 80
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("الانقباضي (الأعلى)", style = tajawal(15, color = Brand.secondaryText))
+                                Text(tr("الانقباضي (الأعلى)", "Systolic (top)"), style = tajawal(15, color = Brand.secondaryText))
                                 GlassField(first, { first = it; error = null }, "120", style = tajawal(26, FontWeight.Bold), centered = true, keyboard = numbers, ltr = true)
                             }
                             Text("/", style = tajawal(30, FontWeight.Bold, Brand.secondaryText), modifier = Modifier.padding(top = 26.dp))
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("الانبساطي (الأدنى)", style = tajawal(15, color = Brand.secondaryText))
+                                Text(tr("الانبساطي (الأدنى)", "Diastolic (bottom)"), style = tajawal(15, color = Brand.secondaryText))
                                 GlassField(second, { second = it; error = null }, "80", style = tajawal(26, FontWeight.Bold), centered = true, keyboard = numbers, ltr = true)
                             }
                         }
                     }
                 }
                 VitalType.SUGAR -> {
-                    FieldLabel("متى قست السكر؟")
+                    FieldLabel(tr("متى قست السكر؟", "When did you measure?"))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         SugarContext.entries.forEach { context ->
                             Chip(context.short, sugarContext == context, Modifier.weight(1f)) { sugarContext = context }
                         }
                     }
                     Text(sugarContext.hint, style = tajawal(14, color = Brand.secondaryText))
-                    FieldLabel("القراءة (${type.unit})")
+                    FieldLabel(tr("القراءة (${type.unit})", "Reading (${type.unit})"))
                     GlassField(first, { first = it; error = null }, "100", style = tajawal(26, FontWeight.Bold), centered = true, keyboard = numbers, ltr = true)
                 }
                 else -> {
-                    FieldLabel("القراءة (${type.unit})")
+                    FieldLabel(tr("القراءة (${type.unit})", "Reading (${type.unit})"))
                     GlassField(first, { first = it; error = null }, "36.8", style = tajawal(26, FontWeight.Bold), centered = true, keyboard = numbers, ltr = true)
                 }
             }
             Text(VitalRanges.normalText(type, sugarContext), style = tajawal(14, color = Brand.secondaryText))
             error?.let { Text(it, style = tajawal(16, FontWeight.Medium, Brand.danger)) }
-            PrimaryButton("حفظ القراءة", Modifier.padding(top = 4.dp), icon = Icons.Filled.Save, enabled = first.isNotBlank() && (type != VitalType.PRESSURE || second.isNotBlank())) {
+            PrimaryButton(tr("حفظ القراءة", "Save reading"), Modifier.padding(top = 4.dp), icon = Icons.Filled.Save, enabled = first.isNotBlank() && (type != VitalType.PRESSURE || second.isNotBlank())) {
                 val a = number(first)
                 val b = number(second)
                 error = when (type) {
                     VitalType.PRESSURE -> when {
-                        a == null || b == null -> "اكتب الرقمين بالأرقام فقط."
-                        a !in VitalRanges.systolicRange || b !in VitalRanges.diastolicRange -> "تأكد من الرقمين؛ يبدو أن فيهما خطأ كتابيًا."
-                        a <= b -> "الرقم الأعلى (الانقباضي) يجب أن يكون أكبر من الأدنى."
+                        a == null || b == null -> tr("اكتب الرقمين بالأرقام فقط.", "Type both numbers using digits only.")
+                        a !in VitalRanges.systolicRange || b !in VitalRanges.diastolicRange -> tr("تأكد من الرقمين؛ يبدو أن فيهما خطأ كتابيًا.", "Check both numbers; there seems to be a typo.")
+                        a <= b -> tr("الرقم الأعلى (الانقباضي) يجب أن يكون أكبر من الأدنى.", "The top number (systolic) must be greater than the bottom one.")
                         else -> null
                     }
-                    VitalType.SUGAR -> if (a == null || a !in VitalRanges.sugarRange) "اكتب قراءة السكر كما في الجهاز (بين 20 و600)." else null
-                    else -> if (a == null || a !in VitalRanges.temperatureRange) "اكتب درجة الحرارة بالمئوية، مثل 36.8" else null
+                    VitalType.SUGAR -> if (a == null || a !in VitalRanges.sugarRange) tr("اكتب قراءة السكر كما في الجهاز (بين 20 و600).", "Type the sugar reading as shown on the meter (between 20 and 600).") else null
+                    else -> if (a == null || a !in VitalRanges.temperatureRange) tr("اكتب درجة الحرارة بالمئوية، مثل 36.8", "Type the temperature in Celsius, e.g. 36.8") else null
                 }
                 if (error == null && patientId != null) {
                     scope.launch {
@@ -279,20 +280,20 @@ private fun VitalEntrySheet(type: VitalType, onDismiss: () -> Unit) {
                         }.onSuccess { saved ->
                             VitalsStore.version++
                             val status = VitalRanges.of(saved)
-                            AppModel.toast = "حُفظت القراءة · ${status.title}"
+                            AppModel.toast = tr("حُفظت القراءة · ${status.title}", "Reading saved · ${status.title}")
                             first = ""; second = ""
-                        }.onFailure { error = "تعذّر حفظ القراءة." }
+                        }.onFailure { error = tr("تعذّر حفظ القراءة.", "Couldn't save the reading.") }
                     }
                 }
             }
 
             if (history.isNotEmpty()) {
-                FieldLabel("آخر القراءات", Modifier.padding(top = 10.dp))
+                FieldLabel(tr("آخر القراءات", "Latest readings"), Modifier.padding(top = 10.dp))
                 history.forEach { reading ->
                     val status = VitalRanges.of(reading)
                     Row(
                         Modifier.fillMaxWidth().glass(RoundedCornerShape(18.dp))
-                            .clickable(onClickLabel = "حذف القراءة") { deleting = reading }
+                            .clickable(onClickLabel = tr("حذف القراءة", "Delete reading")) { deleting = reading }
                             .padding(horizontal = 14.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -313,21 +314,21 @@ private fun VitalEntrySheet(type: VitalType, onDismiss: () -> Unit) {
                         Text(it, style = tajawal(14, color = statusColor(status)))
                     }
                 }
-                Text("اضغط على قراءة لحذفها إن سُجّلت بالخطأ.", style = tajawal(13, color = Brand.secondaryText))
+                Text(tr("اضغط على قراءة لحذفها إن سُجّلت بالخطأ.", "Tap a reading to delete it if it was entered by mistake."), style = tajawal(13, color = Brand.secondaryText))
             }
         }
     }
 
     deleting?.let { reading ->
         AfiatiDialog(
-            title = "حذف القراءة؟",
+            title = tr("حذف القراءة؟", "Delete reading?"),
             text = "${type.title}: ${VitalRanges.display(reading)} ${type.unit} · ${readingTime(reading.measuredAt)}",
-            confirm = "حذف", destructive = true,
+            confirm = tr("حذف", "Delete"), destructive = true,
             onConfirm = {
                 scope.launch { withContext(Dispatchers.IO) { runCatching { VitalsRepository.delete(reading.id) } }; VitalsStore.version++ }
                 deleting = null
             },
-            dismiss = "إلغاء", onDismiss = { deleting = null },
+            dismiss = tr("إلغاء", "Cancel"), onDismiss = { deleting = null },
         )
     }
 }

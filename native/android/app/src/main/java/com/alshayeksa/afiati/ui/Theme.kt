@@ -1,5 +1,7 @@
 package com.alshayeksa.afiati.ui
 
+import com.alshayeksa.afiati.Lang
+import com.alshayeksa.afiati.tr
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.Canvas
@@ -136,7 +138,7 @@ fun AfiatiTheme(content: @Composable () -> Unit) {
     }
     MaterialTheme(colorScheme = scheme) {
         CompositionLocalProvider(
-            LocalLayoutDirection provides LayoutDirection.Rtl,
+            LocalLayoutDirection provides Lang.direction,
             LocalTextStyle provides tajawal(18),
             content = content,
         )
@@ -402,7 +404,7 @@ fun LogoView(size: Dp, modifier: Modifier = Modifier) {
         modifier.size(size).shadow(18.dp, shape, ambientColor = Brand.glow, spotColor = Brand.glow).clip(shape).background(Color.White),
         contentAlignment = Alignment.Center,
     ) {
-        Image(painterResource(R.drawable.afiati_logo), contentDescription = "شعار عافيتي", modifier = Modifier.size(size * 0.92f))
+        Image(painterResource(R.drawable.afiati_logo), contentDescription = tr("شعار عافيتي", "Afiati logo"), modifier = Modifier.size(size * 0.92f))
     }
 }
 

@@ -1,5 +1,6 @@
 package com.alshayeksa.afiati.sync
 
+import com.alshayeksa.afiati.tr
 import android.Manifest
 import android.app.Notification
 import android.app.NotificationManager
@@ -107,7 +108,7 @@ object Push {
             builder.setColor(0xFFE5484D.toInt())
             builder.addAction(
                 Notification.Action.Builder(
-                    null, "أنا قادم",
+                    null, tr("أنا قادم", "I'm coming"),
                     PendingIntent.getBroadcast(
                         context, id + 1,
                         Intent(context, HelpActionReceiver::class.java).setAction(HelpActionReceiver.ACTION_ACK).putExtra(HelpActionReceiver.EXTRA_HELP, helpId)
@@ -119,7 +120,7 @@ object Push {
             data["phone"]?.takeIf { it.isNotBlank() }?.let { phone ->
                 builder.addAction(
                     Notification.Action.Builder(
-                        null, "اتصال",
+                        null, tr("اتصال", "Call"),
                         PendingIntent.getActivity(
                             context, id + 2, Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + phone)),
                             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -133,7 +134,7 @@ object Push {
             data["map_url"]?.takeIf { it.startsWith("https://www.google.com/maps/") }?.let { url ->
                 builder.addAction(
                     Notification.Action.Builder(
-                        null, "الخريطة",
+                        null, tr("الخريطة", "Map"),
                         PendingIntent.getActivity(
                             context, id + 3, Intent(Intent.ACTION_VIEW, Uri.parse(url)),
                             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -160,12 +161,13 @@ class HelpActionReceiver : BroadcastReceiver() {
                 Db.init(context)
                 val help = FamilyApi.acknowledgeHelp(context, helpId)
                 if (help.acknowledgedBy != null && help.acknowledgedBy != PatientRepository.get()?.id) {
-                    (help.acknowledgedByName ?: "أحد أفراد العائلة") + Gender.pick(help.acknowledgedByGender, " في طريقه إلى ", " في طريقها إلى ") + name
+                    val who = help.acknowledgedByName ?: tr("أحد أفراد العائلة", "A family member")
+                    tr(who + Gender.pick(help.acknowledgedByGender, " في طريقه إلى ", " في طريقها إلى ") + name, "$who is on the way to $name")
                 } else {
-                    "أبلغنا " + name + " أنك قادم"
+                    tr("أبلغنا $name أنك قادم", "We told $name you're coming")
                 }
             } catch (error: Exception) {
-                "تعذّر الإبلاغ: " + (error.message ?: "افتح عافيتي")
+                tr("تعذّر الإبلاغ: ", "Couldn't send: ") + (error.message ?: tr("افتح عافيتي", "open Afiati"))
             }
             // نستبدل الإشعار العاجل بتأكيد هادئ
             manager?.notify(

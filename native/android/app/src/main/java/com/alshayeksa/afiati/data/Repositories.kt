@@ -1,5 +1,6 @@
 package com.alshayeksa.afiati.data
 
+import com.alshayeksa.afiati.tr
 import android.content.ContentValues
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase

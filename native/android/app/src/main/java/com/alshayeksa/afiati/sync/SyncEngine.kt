@@ -1,5 +1,6 @@
 package com.alshayeksa.afiati.sync
 
+import com.alshayeksa.afiati.tr
 import android.app.job.JobInfo
 import android.app.job.JobParameters
 import android.app.job.JobScheduler
@@ -72,7 +73,7 @@ object SyncEngine {
 
     /** يسجّل الجوال لدى الخادم مرة واحدة ويحفظ رمزه. يُستدعى أيضًا قبل ميزات العائلة. */
     fun ensureIdentity(patient: Patient? = PatientRepository.get()) {
-        val local = patient ?: throw ApiException(0, "no_patient", "لا يوجد ملف شخصي.")
+        val local = patient ?: throw ApiException(0, "no_patient", tr("لا يوجد ملف شخصي.", "No profile."))
         if (SyncState.get(SyncState.DEVICE_TOKEN) != null) return
         val response = try {
             Api.request(
@@ -86,7 +87,7 @@ object SyncEngine {
                     .put("platform", "android"),
             )
         } catch (error: ApiException) {
-            if (error.code == "profile_exists") throw ApiException(409, error.code, "هذا الملف مسجل مسبقًا على جهاز آخر.")
+            if (error.code == "profile_exists") throw ApiException(409, error.code, tr("هذا الملف مسجل مسبقًا على جهاز آخر.", "This profile is already registered on another device."))
             throw error
         }
         SyncState.set(SyncState.DEVICE_TOKEN, response.getString("token"))

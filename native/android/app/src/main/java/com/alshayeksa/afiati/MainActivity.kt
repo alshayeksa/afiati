@@ -25,6 +25,7 @@ class AfiatiApp : Application() {
     override fun onCreate() {
         super.onCreate()
         LocalStore.init(this)
+        Lang.load(this)
         Db.init(this)
         Appearance.init(this)
         Reminders.createChannel(this)

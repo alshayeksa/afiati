@@ -1,5 +1,6 @@
 package com.alshayeksa.afiati.ui
 
+import com.alshayeksa.afiati.tr
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,28 +38,28 @@ fun MedicationsScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpen:
     TabList(header) {
         item(key = "title") {
             BigTitle(
-                "أدويتي",
+                tr("أدويتي", "My medicines"),
                 when (medications.size) {
-                    0 -> "لا توجد أدوية بعد"
-                    1 -> "دواء واحد نشط · اضغط مطوّلًا لخيارات أكثر"
-                    2 -> "دواءان نشطان · اضغط مطوّلًا لخيارات أكثر"
-                    in 3..10 -> "${medications.size} أدوية نشطة · اضغط مطوّلًا لخيارات أكثر"
-                    else -> "${medications.size} دواءً نشطًا · اضغط مطوّلًا لخيارات أكثر"
+                    0 -> tr("لا توجد أدوية بعد", "No medicines yet")
+                    1 -> tr("دواء واحد نشط · اضغط مطوّلًا لخيارات أكثر", "One active medicine · long-press for more options")
+                    2 -> tr("دواءان نشطان · اضغط مطوّلًا لخيارات أكثر", "Two active medicines · long-press for more options")
+                    in 3..10 -> tr("${medications.size} أدوية نشطة · اضغط مطوّلًا لخيارات أكثر", "${medications.size} active medicines · long-press for more options")
+                    else -> tr("${medications.size} دواءً نشطًا · اضغط مطوّلًا لخيارات أكثر", "${medications.size} active medicines · long-press for more options")
                 },
             )
         }
         if (medications.isEmpty()) {
             item(key = "empty") {
-                EmptyCard("قائمتك فارغة", "أضف أدويتك مرة واحدة، وعافيتي يتولى التذكير والمتابعة.", "إضافة دواء", onAdd)
+                EmptyCard(tr("قائمتك فارغة", "Your list is empty"), tr("أضف أدويتك مرة واحدة، وعافيتي يتولى التذكير والمتابعة.", "Add your medicines once, and Afiati takes care of reminders and follow-up."), tr("إضافة دواء", "Add medicine"), onAdd)
             }
         } else {
             items(medications, key = { it.id }) { medication ->
                 SwipeRow(
                     actions = listOf(
-                        RowAction("مخزون", "أضفت علبة جديدة", Icons.Filled.AddShoppingCart, Color(0xFF2F7FBF)) { refilling = medication },
-                        RowAction("إيقاف", "إيقاف الدواء", Icons.Filled.StopCircle, Brand.danger) { stopping = medication },
+                        RowAction(tr("مخزون", "Stock"), tr("أضفت علبة جديدة", "I added a new box"), Icons.Filled.AddShoppingCart, Color(0xFF2F7FBF)) { refilling = medication },
+                        RowAction(tr("إيقاف", "Stop"), tr("إيقاف الدواء", "Stop medicine"), Icons.Filled.StopCircle, Brand.danger) { stopping = medication },
                     ),
-                    clickLabel = "تفاصيل ${medication.name}",
+                    clickLabel = tr("تفاصيل ${medication.name}", "Details of ${medication.name}"),
                     onClick = { onOpen(medication) },
                 ) { MedicationCard(medication) }
             }
@@ -85,7 +86,7 @@ fun MedicationCard(medication: Medication) {
             )
             medication.stockCount?.let { stock ->
                 Text(
-                    if (medication.lowStock) "المخزون: $stock · قارب على النفاد" else "المخزون: $stock",
+                    if (medication.lowStock) tr("المخزون: $stock · قارب على النفاد", "Stock: $stock · running low") else tr("المخزون: $stock", "Stock: $stock"),
                     style = tajawal(15, FontWeight.Medium, if (medication.lowStock) Brand.warning else Brand.glow),
                 )
             }
@@ -111,13 +112,13 @@ fun MedicationSheet(medication: Medication, onDismiss: () -> Unit) {
             Modifier.padding(top = 18.dp).fillMaxWidth().glass(RoundedCornerShape(24.dp)).padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            InfoRow("التكرار", "${Format.repeatTitle(current.repeatType)} · ${Format.times(if (current.repeatType == "daily") current.times.size else current.repeatDays.size)}")
-            InfoRow("المواعيد", Format.schedule(current.repeatType, current.repeatDays, current.times))
-            InfoRow("المخزون", current.stockCount?.let { if (current.lowStock) "$it · قارب على النفاد" else "$it" } ?: "لا يُتابع")
+            InfoRow(tr("التكرار", "Repeats"), "${Format.repeatTitle(current.repeatType)} · ${Format.times(if (current.repeatType == "daily") current.times.size else current.repeatDays.size)}")
+            InfoRow(tr("المواعيد", "Times"), Format.schedule(current.repeatType, current.repeatDays, current.times))
+            InfoRow(tr("المخزون", "Stock"), current.stockCount?.let { if (current.lowStock) tr("$it · قارب على النفاد", "$it · running low") else "$it" } ?: tr("لا يُتابع", "Not tracked"))
         }
         Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            PrimaryButton("أضفت علبة جديدة", icon = Icons.Filled.AddShoppingCart) { refilling = true }
-            GlassButton("إيقاف هذا الدواء", icon = Icons.Filled.StopCircle, color = Brand.danger) { stopping = true }
+            PrimaryButton(tr("أضفت علبة جديدة", "I added a new box"), icon = Icons.Filled.AddShoppingCart) { refilling = true }
+            GlassButton(tr("إيقاف هذا الدواء", "Stop this medicine"), icon = Icons.Filled.StopCircle, color = Brand.danger) { stopping = true }
         }
     }
     if (refilling) RefillDialog(current, onDismiss = { refilling = false })
@@ -136,9 +137,9 @@ private fun InfoRow(label: String, value: String) {
 fun RefillDialog(medication: Medication, onDismiss: () -> Unit) {
     var amount by remember { mutableIntStateOf(30) }
     AfiatiDialog(
-        title = "كم أضفت إلى ${medication.name}؟",
-        confirm = "إضافة", onConfirm = { AppModel.refill(medication, amount); onDismiss() },
-        dismiss = "إلغاء", onDismiss = onDismiss,
+        title = tr("كم أضفت إلى ${medication.name}؟", "How many did you add to ${medication.name}?"),
+        confirm = tr("إضافة", "Add"), onConfirm = { AppModel.refill(medication, amount); onDismiss() },
+        dismiss = tr("إلغاء", "Cancel"), onDismiss = onDismiss,
     ) {
         Stepper(
             "$amount", onMinus = { amount = (amount - 1).coerceAtLeast(1) }, onPlus = { amount = (amount + 1).coerceAtMost(1000) },
@@ -155,10 +156,10 @@ fun RefillDialog(medication: Medication, onDismiss: () -> Unit) {
 @Composable
 private fun StopDialog(medication: Medication, onDismiss: () -> Unit, onStopped: () -> Unit = {}) {
     AfiatiDialog(
-        title = "إيقاف ${medication.name}؟",
-        text = "لن تصلك تذكيراته بعد الآن، ويبقى ما سجّلته منه في السجل. إذا احتجته لاحقًا أضفه من جديد.",
-        confirm = "إيقاف", destructive = true,
+        title = tr("إيقاف ${medication.name}؟", "Stop ${medication.name}?"),
+        text = tr("لن تصلك تذكيراته بعد الآن، ويبقى ما سجّلته منه في السجل. إذا احتجته لاحقًا أضفه من جديد.", "You won't get its reminders anymore, and what you logged stays in your history. If you need it later, add it again."),
+        confirm = tr("إيقاف", "Stop"), destructive = true,
         onConfirm = { AppModel.stopMedication(medication); onDismiss(); onStopped() },
-        dismiss = "إلغاء", onDismiss = onDismiss,
+        dismiss = tr("إلغاء", "Cancel"), onDismiss = onDismiss,
     )
 }

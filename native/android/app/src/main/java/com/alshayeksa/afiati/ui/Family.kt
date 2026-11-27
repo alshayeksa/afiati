@@ -1,5 +1,6 @@
 package com.alshayeksa.afiati.ui
 
+import com.alshayeksa.afiati.tr
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -114,7 +115,7 @@ fun FamilyScreen(header: @Composable () -> Unit, onOpenPatient: (FamilyLink) -> 
 
     TabList(header) {
         item(key = "title") {
-            BigTitle("العائلة", "اطمئنان متبادل بموافقتك، وأنت تختار ما يرونه")
+            BigTitle(tr("العائلة", "Family"), tr("اطمئنان متبادل بموافقتك، وأنت تختار ما يرونه", "Peace of mind both ways, with your approval — you choose what they see"))
         }
         item(key = "help") { HelpCard(onHelp) }
         item(key = "switch") {
@@ -122,8 +123,8 @@ fun FamilyScreen(header: @Composable () -> Unit, onOpenPatient: (FamilyLink) -> 
                 Modifier.padding(horizontal = 14.dp).padding(bottom = 14.dp).fillMaxWidth().glass(CircleShape).padding(5.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Segment("يتابعونني", !following, Modifier.weight(1f)) { following = false }
-                Segment("أتابعهم", following, Modifier.weight(1f)) { following = true }
+                Segment(tr("يتابعونني", "Following me"), !following, Modifier.weight(1f)) { following = false }
+                Segment(tr("أتابعهم", "I follow"), following, Modifier.weight(1f)) { following = true }
             }
         }
         if (error != null && family == null) {
@@ -142,8 +143,8 @@ fun FamilyScreen(header: @Composable () -> Unit, onOpenPatient: (FamilyLink) -> 
                     Icon(Icons.Filled.PersonAdd, null, tint = Brand.warning, modifier = Modifier.size(30.dp))
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(if (pending.size == 1) "${pending[0].name} يريد متابعتك" else "${pending.size} طلبات متابعة", style = tajawal(19, FontWeight.Bold))
-                        Text("اضغط للموافقة واختيار ما يراه", style = tajawal(15, color = Brand.secondaryText))
+                        Text(if (pending.size == 1) tr("${pending[0].name} يريد متابعتك", "${pending[0].name} wants to follow you") else tr("${pending.size} طلبات متابعة", "${pending.size} follow requests"), style = tajawal(19, FontWeight.Bold))
+                        Text(tr("اضغط للموافقة واختيار ما يراه", "Tap to approve and choose what they see"), style = tajawal(15, color = Brand.secondaryText))
                     }
                 }
             }
@@ -153,9 +154,9 @@ fun FamilyScreen(header: @Composable () -> Unit, onOpenPatient: (FamilyLink) -> 
             if (list.isEmpty()) {
                 item(key = "empty-$following") {
                     EmptyCard(
-                        if (following) "لا تتابع أحدًا بعد" else "لا أحد يتابعك بعد",
-                        if (following) "اطلب من قريبك رمز الدعوة من تطبيقه، ثم أدخله هنا لتطمئن على أدويته."
-                        else "أرسل رمز دعوة لابنك أو ابنتك، فيطمئنون عليك ويصلهم تنبيه إذا فاتتك جرعة.",
+                        if (following) tr("لا تتابع أحدًا بعد", "You don't follow anyone yet") else tr("لا أحد يتابعك بعد", "No one follows you yet"),
+                        if (following) tr("اطلب من قريبك رمز الدعوة من تطبيقه، ثم أدخله هنا لتطمئن على أدويته.", "Ask your relative for the invite code from their app, then enter it here to check on their medicines.")
+                        else tr("أرسل رمز دعوة لابنك أو ابنتك، فيطمئنون عليك ويصلهم تنبيه إذا فاتتك جرعة.", "Send an invite code to your son or daughter so they can check on you and get an alert if you miss a dose."),
                     )
                 }
             } else {
@@ -170,9 +171,9 @@ fun FamilyScreen(header: @Composable () -> Unit, onOpenPatient: (FamilyLink) -> 
         }
         item(key = "actions") {
             Column(Modifier.padding(horizontal = 14.dp).padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (following) PrimaryButton("متابعة قريب برمز", icon = Icons.Filled.PersonAdd) { showJoin = true }
-                else PrimaryButton("دعوة فرد من العائلة", icon = Icons.Filled.Share) { showInvite = true }
-                GlassButton("تحديث", icon = Icons.Filled.Refresh, enabled = !AppModel.familyLoading) { AppModel.refreshFamily() }
+                if (following) PrimaryButton(tr("متابعة قريب برمز", "Follow a relative with a code"), icon = Icons.Filled.PersonAdd) { showJoin = true }
+                else PrimaryButton(tr("دعوة فرد من العائلة", "Invite a family member"), icon = Icons.Filled.Share) { showInvite = true }
+                GlassButton(tr("تحديث", "Refresh"), icon = Icons.Filled.Refresh, enabled = !AppModel.familyLoading) { AppModel.refreshFamily() }
             }
         }
     }
@@ -213,7 +214,7 @@ private fun OfflineCard(message: String) {
 private fun PersonRow(link: FamilyLink, following: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.padding(horizontal = 14.dp).padding(bottom = 10.dp).fillMaxWidth().glass(RoundedCornerShape(24.dp))
-            .clickable(enabled = following, role = Role.Button, onClickLabel = "متابعة ${link.name}", onClick = onClick)
+            .clickable(enabled = following, role = Role.Button, onClickLabel = tr("متابعة ${link.name}", "Open ${link.name}"), onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -222,7 +223,7 @@ private fun PersonRow(link: FamilyLink, following: Boolean, onClick: () -> Unit)
         Column(Modifier.weight(1f)) {
             Text(link.name, style = tajawal(20, FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                if (following) "اضغط لترى أدويته اليوم" else "يرى: ${Privacy.title(link.privacyLevel)}",
+                if (following) tr("اضغط لترى أدويته اليوم", "Tap to see today's medicines") else tr("يرى: ${Privacy.title(link.privacyLevel)}", "Sees: ${Privacy.title(link.privacyLevel)}"),
                 style = tajawal(15, color = Brand.secondaryText),
             )
         }
@@ -251,12 +252,12 @@ fun InviteSheet(onDismiss: () -> Unit) {
     LaunchedEffect(Unit) { generate() }
     val code = invitation?.code
     val name = AppModel.patient?.fullName.orEmpty()
-    val message = "السلام عليكم، أدعوك لمتابعة أدويتي في تطبيق عافيتي لتطمئن علي.\nرمز الدعوة: $code\n(صالح لمدة 24 ساعة)"
+    val message = tr("السلام عليكم، أدعوك لمتابعة أدويتي في تطبيق عافيتي لتطمئن علي.\nرمز الدعوة: $code\n(صالح لمدة 24 ساعة)", "Hello! I'm inviting you to follow my medicines in the Afiati app so you can check on me.\nInvite code: $code\n(valid for 24 hours)")
 
-    AfiatiSheet("دعوة فرد من العائلة", onDismiss) {
+    AfiatiSheet(tr("دعوة فرد من العائلة", "Invite a family member"), onDismiss) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
-                "أرسل الرمز لابنك أو ابنتك. يفتح عافيتي في جواله ويدخله في «العائلة ← أتابعهم»، ثم توافق أنت وتختار ما يراه.",
+                tr("أرسل الرمز لابنك أو ابنتك. يفتح عافيتي في جواله ويدخله في «العائلة ← أتابعهم»، ثم توافق أنت وتختار ما يراه.", "Send the code to your son or daughter. They open Afiati on their phone and enter it under “Family → I follow”, then you approve and choose what they see."),
                 style = tajawal(17, color = Brand.secondaryText),
             )
             Column(
@@ -274,32 +275,32 @@ fun InviteSheet(onDismiss: () -> Unit) {
                                 }
                             }
                         }
-                        Text("صالح لمدة 24 ساعة · ${name.ifEmpty { "رمزك" }}", style = tajawal(15, color = Brand.secondaryText))
+                        Text(tr("صالح لمدة 24 ساعة · ${name.ifEmpty { "رمزك" }}", "Valid for 24 hours · ${name.ifEmpty { "your code" }}"), style = tajawal(15, color = Brand.secondaryText))
                     }
                     error != null -> Text(error!!, style = tajawal(17, color = Brand.warning), textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 16.dp))
                     else -> CircularProgressIndicator(color = Brand.glow)
                 }
             }
             if (code != null) {
-                PrimaryButton("مشاركة الرمز", icon = Icons.Filled.Share) {
+                PrimaryButton(tr("مشاركة الرمز", "Share the code"), icon = Icons.Filled.Share) {
                     val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, message)
-                    runCatching { context.startActivity(Intent.createChooser(send, "مشاركة رمز الدعوة")) }
+                    runCatching { context.startActivity(Intent.createChooser(send, tr("مشاركة رمز الدعوة", "Share invite code"))) }
                 }
-                GlassButton(if (copied) "تم النسخ" else "نسخ الرمز", icon = if (copied) Icons.Filled.Check else Icons.Filled.ContentCopy) {
-                    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("عافيتي", code))
+                GlassButton(if (copied) tr("تم النسخ", "Copied") else tr("نسخ الرمز", "Copy code"), icon = if (copied) Icons.Filled.Check else Icons.Filled.ContentCopy) {
+                    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(tr("عافيتي", "Afiati"), code))
                     copied = true
                 }
                 if (copied) LaunchedEffect(Unit) { delay(2000); copied = false }
                 val qr = remember(code) { qrImage(code) }
                 if (qr != null) {
-                    FieldLabel("أو امسح الرمز بكاميرا الجوال الآخر", Modifier.padding(top = 6.dp))
+                    FieldLabel(tr("أو امسح الرمز بكاميرا الجوال الآخر", "Or scan the code with the other phone's camera"), Modifier.padding(top = 6.dp))
                     Image(
-                        qr, "رمز QR للدعوة", filterQuality = FilterQuality.None,
+                        qr, tr("رمز QR للدعوة", "Invite QR code"), filterQuality = FilterQuality.None,
                         modifier = Modifier.align(Alignment.CenterHorizontally).size(200.dp).background(Color.White, RoundedCornerShape(18.dp)).padding(12.dp),
                     )
                 }
             }
-            GlassButton("رمز جديد", icon = Icons.Filled.Refresh, enabled = !loading) { generate() }
+            GlassButton(tr("رمز جديد", "New code"), icon = Icons.Filled.Refresh, enabled = !loading) { generate() }
         }
     }
 }
@@ -329,13 +330,13 @@ fun JoinSheet(onDismiss: () -> Unit) {
     }
 
     fun submit() {
-        if (code.length != 6) { error = "أدخل الأرقام الستة كاملة."; return }
+        if (code.length != 6) { error = tr("أدخل الأرقام الستة كاملة.", "Enter all six digits."); return }
         sending = true
         scope.launch {
             AppModel.familyCall { FamilyApi.join(it, code) }
                 .onSuccess { result ->
-                    val name = result.patientName.ifEmpty { "صاحب الدعوة" }
-                    done = if (result.status == "active") "أنت تتابع $name مسبقًا." else "أُرسل طلبك. بانتظار موافقة $name."
+                    val name = result.patientName.ifEmpty { tr("صاحب الدعوة", "the inviter") }
+                    done = if (result.status == "active") tr("أنت تتابع $name مسبقًا.", "You already follow $name.") else tr("أُرسل طلبك. بانتظار موافقة $name.", "Request sent. Waiting for $name to approve.")
                     AppModel.refreshFamily()
                 }
                 .onFailure { error = it.message }
@@ -343,7 +344,7 @@ fun JoinSheet(onDismiss: () -> Unit) {
         }
     }
 
-    AfiatiSheet("متابعة قريب", onDismiss, closeTitle = if (done != null) "تم" else "إلغاء") {
+    AfiatiSheet(tr("متابعة قريب", "Follow a relative"), onDismiss, closeTitle = if (done != null) tr("تم", "Done") else tr("إلغاء", "Cancel")) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (done != null) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -352,10 +353,10 @@ fun JoinSheet(onDismiss: () -> Unit) {
                     }
                     Text(done!!, style = tajawal(20, FontWeight.Bold), textAlign = TextAlign.Center)
                 }
-                PrimaryButton("حسنًا", onClick = onDismiss)
+                PrimaryButton(tr("حسنًا", "OK"), onClick = onDismiss)
                 return@Column
             }
-            Text("اكتب رمز الدعوة المكوّن من 6 أرقام الذي أرسله لك قريبك.", style = tajawal(17, color = Brand.secondaryText))
+            Text(tr("اكتب رمز الدعوة المكوّن من 6 أرقام الذي أرسله لك قريبك.", "Type the 6-digit invite code your relative sent you."), style = tajawal(17, color = Brand.secondaryText))
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 BasicTextField(
                     code, { value -> code = value.filter(Char::isDigit).take(6); error = null },
@@ -382,7 +383,7 @@ fun JoinSheet(onDismiss: () -> Unit) {
                 )
             }
             error?.let { Text(it, style = tajawal(17, FontWeight.Medium, Brand.danger)) }
-            PrimaryButton(if (sending) "جارٍ الإرسال…" else "إرسال طلب المتابعة", enabled = !sending && code.length == 6, icon = Icons.Filled.PersonAdd) { submit() }
+            PrimaryButton(if (sending) tr("جارٍ الإرسال…", "Sending…") else tr("إرسال طلب المتابعة", "Send follow request"), enabled = !sending && code.length == 6, icon = Icons.Filled.PersonAdd) { submit() }
         }
     }
 }
@@ -398,7 +399,7 @@ fun ApprovalSheet(request: FamilyLink, onDismiss: () -> Unit) {
         AppModel.respond(request.caregiverId, approve, level) { message ->
             sending = false
             if (message == null) {
-                AppModel.toast = if (approve) "${request.name} يتابعك الآن" else "رُفض الطلب"
+                AppModel.toast = if (approve) tr("${request.name} يتابعك الآن", "${request.name} now follows you") else tr("رُفض الطلب", "Request declined")
                 onDismiss()
             } else error = message
         }
@@ -407,8 +408,8 @@ fun ApprovalSheet(request: FamilyLink, onDismiss: () -> Unit) {
     AfiatiSheet(null, onDismiss) {
         Column(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AvatarView(request.name, request.id, size = 80.dp)
-            Text("${request.name} يريد متابعة أدويتك", style = tajawal(24, FontWeight.Bold), textAlign = TextAlign.Center)
-            Text("اختر ما يراه من أدويتك.", style = tajawal(17, color = Brand.secondaryText))
+            Text(tr("${request.name} يريد متابعة أدويتك", "${request.name} wants to follow your medicines"), style = tajawal(24, FontWeight.Bold), textAlign = TextAlign.Center)
+            Text(tr("اختر ما يراه من أدويتك.", "Choose what they can see."), style = tajawal(17, color = Brand.secondaryText))
         }
         Column(Modifier.padding(top = 18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             listOf(Privacy.FULL, Privacy.STATUS_ONLY, Privacy.ALERTS_ONLY).forEach { option ->
@@ -430,8 +431,8 @@ fun ApprovalSheet(request: FamilyLink, onDismiss: () -> Unit) {
                 }
             }
             error?.let { Text(it, style = tajawal(17, FontWeight.Medium, Brand.danger)) }
-            PrimaryButton("موافق", icon = Icons.Filled.Check, enabled = !sending) { answer(true) }
-            GlassButton("رفض", color = Brand.danger, enabled = !sending) { answer(false) }
+            PrimaryButton(tr("موافق", "Approve"), icon = Icons.Filled.Check, enabled = !sending) { answer(true) }
+            GlassButton(tr("رفض", "Decline"), color = Brand.danger, enabled = !sending) { answer(false) }
         }
     }
 }
@@ -465,19 +466,19 @@ fun PatientScreen(link: FamilyLink, onClose: () -> Unit) {
             item(key = "bar") {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        Modifier.size(48.dp).glass(CircleShape).clickable(role = Role.Button, onClickLabel = "رجوع", onClick = onClose),
+                        Modifier.size(48.dp).glass(CircleShape).clickable(role = Role.Button, onClickLabel = tr("رجوع", "Back"), onClick = onClose),
                         contentAlignment = Alignment.Center,
-                    ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع", tint = Brand.text, modifier = Modifier.size(24.dp)) }
+                    ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("رجوع", "Back"), tint = Brand.text, modifier = Modifier.size(24.dp)) }
                     Spacer(Modifier.weight(1f))
                     Box(
-                        Modifier.size(48.dp).glass(CircleShape).clickable(enabled = !loading, role = Role.Button, onClickLabel = "تحديث") { load() },
+                        Modifier.size(48.dp).glass(CircleShape).clickable(enabled = !loading, role = Role.Button, onClickLabel = tr("تحديث", "Refresh")) { load() },
                         contentAlignment = Alignment.Center,
-                    ) { Icon(Icons.Filled.Refresh, "تحديث", tint = Brand.glow, modifier = Modifier.size(24.dp)) }
+                    ) { Icon(Icons.Filled.Refresh, tr("تحديث", "Refresh"), tint = Brand.glow, modifier = Modifier.size(24.dp)) }
                 }
             }
             item(key = "title") {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 18.dp, bottom = 10.dp)) {
-                    Text("أدوية اليوم", style = tajawal(18, FontWeight.Medium, Brand.glow))
+                    Text(tr("أدوية اليوم", "Today's medicines"), style = tajawal(18, FontWeight.Medium, Brand.glow))
                     Text(day?.patientName ?: link.name, style = tajawal(38, FontWeight.Bold))
                     Text(Format.gregorianDay(), style = tajawal(16, color = Brand.secondaryText))
                 }
@@ -489,7 +490,7 @@ fun PatientScreen(link: FamilyLink, onClose: () -> Unit) {
                     Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Brand.glow) }
                 }
                 current.privacyLevel == Privacy.ALERTS_ONLY -> item(key = "alerts") {
-                    EmptyCard("تنبيهات التأخير فقط", "اختار ${link.name} أن تصلك تنبيهات عند فوات جرعة، دون عرض تفاصيل أدويته.")
+                    EmptyCard(tr("تنبيهات التأخير فقط", "Missed-dose alerts only"), tr("اختار ${link.name} أن تصلك تنبيهات عند فوات جرعة، دون عرض تفاصيل أدويته.", "${link.name} chose to send you alerts when a dose is missed, without showing medicine details."))
                 }
                 else -> {
                     val logs = current.logs
@@ -500,27 +501,27 @@ fun PatientScreen(link: FamilyLink, onClose: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(Modifier.weight(1f)) {
-                                Text("التزامه اليوم", style = tajawal(17, color = Brand.secondaryText))
-                                Text(if (logs.isEmpty()) "لا جرعات اليوم" else "أخذ $done من ${logs.size}", style = tajawal(24, FontWeight.Bold))
+                                Text(tr("التزامه اليوم", "Their adherence today"), style = tajawal(17, color = Brand.secondaryText))
+                                Text(if (logs.isEmpty()) tr("لا جرعات اليوم", "No doses today") else tr("أخذ $done من ${logs.size}", "Took $done of ${logs.size}"), style = tajawal(24, FontWeight.Bold))
                             }
                             ProgressRing(if (logs.isEmpty()) 0f else done.toFloat() / logs.size, 96.dp) {
-                                Text(if (logs.isEmpty()) "—" else "${done * 100 / logs.size}٪", style = tajawal(22, FontWeight.Bold))
+                                Text(if (logs.isEmpty()) "—" else tr("${done * 100 / logs.size}٪", "${done * 100 / logs.size}%"), style = tajawal(22, FontWeight.Bold))
                             }
                         }
                     }
                     items(logs, key = { "p-" + it.id }) { log ->
-                        val shown = if (current.privacyLevel == Privacy.STATUS_ONLY || log.medicationName.isEmpty()) log.copy(medicationName = "جرعة دواء") else log
+                        val shown = if (current.privacyLevel == Privacy.STATUS_ONLY || log.medicationName.isEmpty()) log.copy(medicationName = tr("جرعة دواء", "Medicine dose")) else log
                         DoseRow(shown, doseState(log, now), onTake = null) {}
                     }
                 }
             }
         }
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
-            PrimaryButton(if (reminding) "جارٍ الإرسال…" else "إرسال تذكير لطيف", icon = Icons.Filled.NotificationsActive, enabled = !reminding) {
+            PrimaryButton(if (reminding) tr("جارٍ الإرسال…", "Sending…") else tr("إرسال تذكير لطيف", "Send a gentle reminder"), icon = Icons.Filled.NotificationsActive, enabled = !reminding) {
                 reminding = true
                 scope.launch {
                     AppModel.familyCall { FamilyApi.remind(it, link.patientId) }
-                        .onSuccess { AppModel.toast = "وصل تذكيرك إلى ${link.name}" }
+                        .onSuccess { AppModel.toast = tr("وصل تذكيرك إلى ${link.name}", "Your reminder reached ${link.name}") }
                         .onFailure { AppModel.toast = it.message }
                     reminding = false
                 }

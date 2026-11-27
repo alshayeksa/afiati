@@ -1,5 +1,6 @@
 package com.alshayeksa.afiati.sync
 
+import com.alshayeksa.afiati.tr
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -20,8 +21,8 @@ object Api {
 
     /** طلب متزامن، يُستدعى من خيط خلفي فقط */
     fun request(path: String, method: String = "GET", body: JSONObject? = null, auth: Boolean = true): JSONObject {
-        if (!configured) throw ApiException(0, "not_configured", "خادم المزامنة غير مُعد.")
-        val token = if (auth) SyncState.get(SyncState.DEVICE_TOKEN) ?: throw ApiException(401, "unauthorized", "الجهاز غير مسجل.") else null
+        if (!configured) throw ApiException(0, "not_configured", tr("خادم المزامنة غير مُعد.", "The sync server isn't set up."))
+        val token = if (auth) SyncState.get(SyncState.DEVICE_TOKEN) ?: throw ApiException(401, "unauthorized", tr("الجهاز غير مسجل.", "This device isn't registered.")) else null
         val connection = try {
             (URL(baseUrl + path).openConnection() as HttpURLConnection).apply {
                 requestMethod = method
@@ -30,6 +31,8 @@ object Api {
                 setRequestProperty("Accept", "application/json")
                 // منطقة الجوال الزمنية: الخادم لا يرسل في الليل التنبيهات التي تحتمل التأجيل
                 setRequestProperty("X-Timezone", java.time.ZoneId.systemDefault().id)
+                // لغة الواجهة: رسائل العائلة من الخادم تصل بها
+                setRequestProperty("X-Language", com.alshayeksa.afiati.Lang.code)
                 if (token != null) setRequestProperty("Authorization", "Bearer $token")
                 if (body != null) {
                     doOutput = true
@@ -38,11 +41,11 @@ object Api {
                 }
             }
         } catch (error: IOException) {
-            throw ApiException(0, "network_error", "تعذر الوصول إلى الخادم.")
+            throw ApiException(0, "network_error", tr("تعذر الوصول إلى الخادم.", "Couldn't reach the server."))
         }
         try {
             val status = try { connection.responseCode } catch (error: IOException) {
-                throw ApiException(0, "network_error", "تعذر الوصول إلى الخادم.")
+                throw ApiException(0, "network_error", tr("تعذر الوصول إلى الخادم.", "Couldn't reach the server."))
             }
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val text = stream?.use { it.readBytes().toString(Charsets.UTF_8) }.orEmpty()
@@ -52,7 +55,7 @@ object Api {
             }
             return json ?: JSONObject()
         } catch (error: IOException) {
-            throw ApiException(0, "network_error", "تعذر الوصول إلى الخادم.")
+            throw ApiException(0, "network_error", tr("تعذر الوصول إلى الخادم.", "Couldn't reach the server."))
         } finally {
             connection.disconnect()
         }

@@ -1,5 +1,6 @@
 package com.alshayeksa.afiati.sync
 
+import com.alshayeksa.afiati.tr
 import android.content.Context
 import com.alshayeksa.afiati.data.DoseLog
 import com.alshayeksa.afiati.data.Gender
@@ -18,15 +19,15 @@ object Privacy {
     const val ALERTS_ONLY = "alerts_only"
 
     fun title(level: String) = when (level) {
-        FULL -> "كل شيء"
-        STATUS_ONLY -> "أخذت أم لا فقط"
-        else -> "تنبيهات التأخير فقط"
+        FULL -> tr("كل شيء", "Everything")
+        STATUS_ONLY -> tr("أخذت أم لا فقط", "Taken or not only")
+        else -> tr("تنبيهات التأخير فقط", "Missed-dose alerts only")
     }
 
     fun body(level: String) = when (level) {
-        FULL -> "يرى أسماء الأدوية والجرعات ومواعيدها"
-        STATUS_ONLY -> "يرى هل أخذت جرعاتك، بدون أسماء الأدوية"
-        else -> "لا يرى التفاصيل، ويصله تنبيه عند فوات جرعة"
+        FULL -> tr("يرى أسماء الأدوية والجرعات ومواعيدها", "Sees medicine names, doses and times")
+        STATUS_ONLY -> tr("يرى هل أخذت جرعاتك، بدون أسماء الأدوية", "Sees whether you took your doses, without medicine names")
+        else -> tr("لا يرى التفاصيل، ويصله تنبيه عند فوات جرعة", "Doesn't see details; gets an alert when a dose is missed")
     }
 }
 
@@ -75,19 +76,19 @@ data class HelpSent(val help: HelpRequest, val notified: Int)
 
 data class ActiveHelp(val mine: HelpRequest?, val family: List<HelpRequest>)
 
-/** ميزات العائلة على الخادم. تحتاج إنترنت، وكل خطأ يصل برسالة عربية واضحة. */
+/** ميزات العائلة على الخادم. تحتاج إنترنت، وكل خطأ يصل برسالة واضحة بلغة الواجهة. */
 object FamilyApi {
-    const val OFFLINE_MESSAGE = "خاصية العائلة تحتاج اتصالًا بالإنترنت. اتصل بالشبكة لمتابعة ذويك."
+    val OFFLINE_MESSAGE get() = tr("خاصية العائلة تحتاج اتصالًا بالإنترنت. اتصل بالشبكة لمتابعة ذويك.", "Family features need internet. Connect to check on your loved ones.")
 
-    private val messages = mapOf(
-        "not_configured" to "خدمة العائلة غير مُعدّة بعد.",
-        "network_error" to "تعذر الاتصال بخدمة العائلة. تحقق من الإنترنت وحاول مرة أخرى.",
-        "invalid_code" to "الرمز غير صحيح أو منتهي الصلاحية.",
-        "self_follow" to "هذا رمزك أنت. أرسله لأحد أفراد عائلتك ليتابعك.",
-        "forbidden" to "لا تملك صلاحية متابعة هذا الشخص.",
-        "request_not_found" to "هذا الطلب لم يعد بانتظار الموافقة.",
-        "profile_exists" to "هذا الملف مسجل مسبقًا على جهاز آخر.",
-        "help_not_found" to "طلب المساعدة لم يعد موجودًا.",
+    private val messages get() = mapOf(
+        "not_configured" to tr("خدمة العائلة غير مُعدّة بعد.", "The family service isn't set up yet."),
+        "network_error" to tr("تعذر الاتصال بخدمة العائلة. تحقق من الإنترنت وحاول مرة أخرى.", "Couldn't reach the family service. Check your internet and try again."),
+        "invalid_code" to tr("الرمز غير صحيح أو منتهي الصلاحية.", "The code is wrong or expired."),
+        "self_follow" to tr("هذا رمزك أنت. أرسله لأحد أفراد عائلتك ليتابعك.", "This is your own code. Send it to a family member so they can follow you."),
+        "forbidden" to tr("لا تملك صلاحية متابعة هذا الشخص.", "You don't have permission to follow this person."),
+        "request_not_found" to tr("هذا الطلب لم يعد بانتظار الموافقة.", "This request is no longer waiting for approval."),
+        "profile_exists" to tr("هذا الملف مسجل مسبقًا على جهاز آخر.", "This profile is already registered on another device."),
+        "help_not_found" to tr("طلب المساعدة لم يعد موجودًا.", "The help request no longer exists."),
     )
 
     private suspend fun call(
@@ -99,7 +100,7 @@ object FamilyApi {
             Api.request(path, method, body)
         } catch (error: ApiException) {
             if (error.status == 429 && rateLimitMessage != null) throw FamilyException(rateLimitMessage)
-            throw FamilyException(messages[error.code] ?: "تعذر إكمال الطلب. حاول مرة أخرى.")
+            throw FamilyException(messages[error.code] ?: tr("تعذر إكمال الطلب. حاول مرة أخرى.", "Couldn't complete the request. Try again."))
         }
     }
 
@@ -109,7 +110,7 @@ object FamilyApi {
         caregiverId = o.getString("caregiver_id"),
         privacyLevel = o.optString("privacy_level", Privacy.FULL),
         status = o.optString("status"),
-        name = o.optJSONObject("profiles")?.nullableString("full_name") ?: "فرد من العائلة",
+        name = o.optJSONObject("profiles")?.nullableString("full_name") ?: tr("فرد من العائلة", "A family member"),
     )
 
     suspend fun overview(context: Context): FamilyOverview {
@@ -127,7 +128,7 @@ object FamilyApi {
     }
 
     suspend fun join(context: Context, code: String): JoinResult {
-        val o = call(context, "/v1/family/join", "POST", JSONObject().put("code", code), "محاولات كثيرة. انتظر ساعة ثم حاول مرة أخرى.")
+        val o = call(context, "/v1/family/join", "POST", JSONObject().put("code", code), tr("محاولات كثيرة. انتظر ساعة ثم حاول مرة أخرى.", "Too many attempts. Wait an hour and try again."))
         return JoinResult(o.optString("status", "pending"), o.optString("patient_name"))
     }
 
@@ -155,7 +156,7 @@ object FamilyApi {
     suspend fun remind(context: Context, patientId: String) {
         call(
             context, "/v1/family/patients/${URLEncoder.encode(patientId, "UTF-8")}/remind", "POST",
-            rateLimitMessage = "أرسلت تذكيرًا قبل قليل. يمكنك الإرسال مرة أخرى بعد 10 دقائق.",
+            rateLimitMessage = tr("أرسلت تذكيرًا قبل قليل. يمكنك الإرسال مرة أخرى بعد 10 دقائق.", "You sent a reminder a moment ago. You can send another in 10 minutes."),
         )
     }
 
@@ -188,7 +189,7 @@ object FamilyApi {
     suspend fun requestHelp(context: Context, message: String? = null, point: HelpPoint? = null): HelpSent {
         val o = call(
             context, "/v1/help", "POST", JSONObject().put("message", message ?: JSONObject.NULL).putPoint(point),
-            "أرسلت طلبات مساعدة كثيرة. اتصل بعائلتك أو بالإسعاف مباشرة.",
+            tr("أرسلت طلبات مساعدة كثيرة. اتصل بعائلتك أو بالإسعاف مباشرة.", "You sent many help requests. Call your family or an ambulance directly."),
         )
         return HelpSent(help(o.getJSONObject("help")), o.optInt("notified"))
     }

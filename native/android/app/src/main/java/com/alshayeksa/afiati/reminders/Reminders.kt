@@ -1,5 +1,6 @@
 package com.alshayeksa.afiati.reminders
 
+import com.alshayeksa.afiati.tr
 import android.Manifest
 import android.app.AlarmManager
 import android.app.Notification
@@ -51,8 +52,8 @@ object Reminders {
     const val EXTRA_SCHEDULED_AT = "scheduled_at"
 
     fun createChannel(context: Context) {
-        val channel = NotificationChannel(CHANNEL, "مواعيد الأدوية", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "تذكير بموعد كل دواء"
+        val channel = NotificationChannel(CHANNEL, tr("مواعيد الأدوية", "Medicine times"), NotificationManager.IMPORTANCE_HIGH).apply {
+            description = tr("تذكير بموعد كل دواء", "A reminder for each medicine time")
             enableVibration(true)
             vibrationPattern = longArrayOf(0, 300, 200, 300)
             setSound(
@@ -60,13 +61,13 @@ object Reminders {
                 AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build(),
             )
         }
-        val family = NotificationChannel(FAMILY_CHANNEL, "تنبيهات العائلة", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "طلبات المتابعة والتذكيرات من أفراد العائلة"
+        val family = NotificationChannel(FAMILY_CHANNEL, tr("تنبيهات العائلة", "Family alerts"), NotificationManager.IMPORTANCE_HIGH).apply {
+            description = tr("طلبات المتابعة والتذكيرات من أفراد العائلة", "Follow requests and reminders from family members")
             enableVibration(true)
         }
         // طلبات المساعدة: صوت المنبّه واهتزاز طويل، ويتخطى «عدم الإزعاج» إن سمح المستخدم بذلك
-        val help = NotificationChannel(HELP_CHANNEL, "طلبات المساعدة العاجلة", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "حين يضغط قريبك زر المساعدة، وحين يرد أحد على طلبك"
+        val help = NotificationChannel(HELP_CHANNEL, tr("طلبات المساعدة العاجلة", "Urgent help requests"), NotificationManager.IMPORTANCE_HIGH).apply {
+            description = tr("حين يضغط قريبك زر المساعدة، وحين يرد أحد على طلبك", "When your relative presses the help button, and when someone answers your request")
             enableVibration(true)
             vibrationPattern = longArrayOf(0, 800, 300, 800, 300, 800)
             setBypassDnd(true)
@@ -158,8 +159,8 @@ object Reminders {
             Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val title = if (count <= 0) "نفد ${medication.name}" else "${medication.name} قارب على النفاد"
-        val body = if (count <= 0) "اطلب علبة جديدة، ثم اضغط «اشتريت علبة» في عافيتي." else "باقي $count. اطلب علبة جديدة قريبًا، ثم اضغط «اشتريت علبة» في عافيتي."
+        val title = if (count <= 0) tr("نفد ${medication.name}", "${medication.name} has run out") else tr("${medication.name} قارب على النفاد", "${medication.name} is running low")
+        val body = if (count <= 0) tr("اطلب علبة جديدة، ثم اضغط «اشتريت علبة» في عافيتي.", "Order a new box, then tap “I added a new box” in Afiati.") else tr("باقي $count. اطلب علبة جديدة قريبًا، ثم اضغط «اشتريت علبة» في عافيتي.", "$count left. Order a new box soon, then tap “I added a new box” in Afiati.")
         context.getSystemService(NotificationManager::class.java)?.notify(
             stockNotificationId(medicationId),
             Notification.Builder(context, CHANNEL)
@@ -195,13 +196,13 @@ object Reminders {
         )
         val notification = Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_pill)
-            .setContentTitle("حان موعد ${medication.name}")
+            .setContentTitle(tr("حان موعد ${medication.name}", "Time for ${medication.name}"))
             .setContentText("${Format.dose(medication.doseAmount, medication.doseUnit)} · ${Format.time(time)}")
             .setCategory(Notification.CATEGORY_REMINDER)
             .setContentIntent(open)
             .setAutoCancel(true)
-            .addAction(Notification.Action.Builder(null, "أخذتها ✓", action(ACTION_TAKE, id + 1)).build())
-            .addAction(Notification.Action.Builder(null, "ذكّرني بعد 10 دقائق", action(ACTION_SNOOZE, id + 2)).build())
+            .addAction(Notification.Action.Builder(null, tr("أخذتها ✓", "Taken ✓"), action(ACTION_TAKE, id + 1)).build())
+            .addAction(Notification.Action.Builder(null, tr("ذكّرني بعد 10 دقائق", "Remind me in 10 minutes"), action(ACTION_SNOOZE, id + 2)).build())
             .build()
         context.getSystemService(NotificationManager::class.java)?.notify(id, notification)
     }

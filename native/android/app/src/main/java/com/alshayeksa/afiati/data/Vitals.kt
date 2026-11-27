@@ -1,14 +1,18 @@
 package com.alshayeksa.afiati.data
 
+import com.alshayeksa.afiati.tr
 import android.content.ContentValues
 import java.util.Locale
 
 /** العلامات الحيوية. النبض يقيسه الجهاز بالكاميرا (HeartRateRepository)، والباقي إدخال يدوي. */
-enum class VitalType(val key: String, val title: String, val unit: String) {
-    PULSE("pulse", "النبض", "نبضة/دقيقة"),
-    PRESSURE("pressure", "ضغط الدم", "ملم زئبق"),
-    SUGAR("sugar", "سكر الدم", "ملغ/دل"),
-    TEMPERATURE("temperature", "درجة الحرارة", "°م");
+enum class VitalType(val key: String, private val titleAr: String, private val titleEn: String, private val unitAr: String, private val unitEn: String) {
+    PULSE("pulse", "النبض", "Heart rate", "نبضة/دقيقة", "bpm"),
+    PRESSURE("pressure", "ضغط الدم", "Blood pressure", "ملم زئبق", "mmHg"),
+    SUGAR("sugar", "سكر الدم", "Blood sugar", "ملغ/دل", "mg/dL"),
+    TEMPERATURE("temperature", "درجة الحرارة", "Temperature", "°م", "°C");
+
+    val title get() = tr(titleAr, titleEn)
+    val unit get() = tr(unitAr, unitEn)
 
     companion object {
         fun of(key: String) = entries.firstOrNull { it.key == key }
@@ -16,10 +20,17 @@ enum class VitalType(val key: String, val title: String, val unit: String) {
 }
 
 /** متى قيس السكر: يغيّر المدى الطبيعي */
-enum class SugarContext(val key: String, val title: String, val short: String, val hint: String) {
-    FASTING("fasting", "صائم", "صائم", "قبل الأكل، بعد 8 ساعات بلا طعام"),
-    AFTER_MEAL("after_meal", "بعد الأكل", "بعد الأكل", "بعد ساعتين من بداية الأكل"),
-    RANDOM("random", "أي وقت", "أي وقت", "في أي وقت من اليوم");
+enum class SugarContext(
+    val key: String, private val titleAr: String, private val titleEn: String, private val shortAr: String, private val shortEn: String,
+    private val hintAr: String, private val hintEn: String,
+) {
+    FASTING("fasting", "صائم", "Fasting", "صائم", "Fasting", "قبل الأكل، بعد 8 ساعات بلا طعام", "Before eating, after 8 hours without food"),
+    AFTER_MEAL("after_meal", "بعد الأكل", "After meal", "بعد الأكل", "After meal", "بعد ساعتين من بداية الأكل", "Two hours after you start eating"),
+    RANDOM("random", "أي وقت", "Any time", "أي وقت", "Any time", "في أي وقت من اليوم", "At any time of day");
+
+    val title get() = tr(titleAr, titleEn)
+    val short get() = tr(shortAr, shortEn)
+    val hint get() = tr(hintAr, hintEn)
 
     companion object {
         fun of(key: String?) = entries.firstOrNull { it.key == key } ?: RANDOM
@@ -27,13 +38,15 @@ enum class SugarContext(val key: String, val title: String, val short: String, v
 }
 
 /** حالة القراءة بلغة بسيطة. للمتابعة فقط، وليست تشخيصًا. */
-enum class VitalStatus(val title: String) {
-    VERY_LOW("منخفض جدًا"),
-    LOW("منخفض"),
-    NORMAL("طبيعي"),
-    ELEVATED("مرتفع قليلًا"),
-    HIGH("مرتفع"),
-    VERY_HIGH("مرتفع جدًا");
+enum class VitalStatus(private val ar: String, private val en: String) {
+    VERY_LOW("منخفض جدًا", "Very low"),
+    LOW("منخفض", "Low"),
+    NORMAL("طبيعي", "Normal"),
+    ELEVATED("مرتفع قليلًا", "Slightly high"),
+    HIGH("مرتفع", "High"),
+    VERY_HIGH("مرتفع جدًا", "Very high");
+
+    val title get() = tr(ar, en)
 
     /** قراءة تستحق التنبيه بالاتصال بالطبيب أو الإسعاف إن صاحبتها أعراض */
     val urgent get() = this == VERY_LOW || this == VERY_HIGH
@@ -103,10 +116,10 @@ object VitalRanges {
 
     /** سطر المدى الطبيعي تحت اسم العلامة */
     fun normalText(type: VitalType, context: SugarContext = SugarContext.FASTING) = when (type) {
-        VitalType.PULSE -> "الطبيعي في الراحة: ${ltr("60–100")}"
-        VitalType.PRESSURE -> "الطبيعي: أقل من ${ltr("120/80")}"
-        VitalType.SUGAR -> if (context == SugarContext.FASTING) "الطبيعي صائمًا: ${ltr("70–99")}" else "الطبيعي بعد الأكل: أقل من 140"
-        VitalType.TEMPERATURE -> "الطبيعي: ${ltr("36.1–37.4")}"
+        VitalType.PULSE -> tr("الطبيعي في الراحة: ${ltr("60–100")}", "Normal at rest: ${ltr("60–100")}")
+        VitalType.PRESSURE -> tr("الطبيعي: أقل من ${ltr("120/80")}", "Normal: below ${ltr("120/80")}")
+        VitalType.SUGAR -> if (context == SugarContext.FASTING) tr("الطبيعي صائمًا: ${ltr("70–99")}", "Normal fasting: ${ltr("70–99")}") else tr("الطبيعي بعد الأكل: أقل من 140", "Normal after meals: below 140")
+        VitalType.TEMPERATURE -> tr("الطبيعي: ${ltr("36.1–37.4")}", "Normal: ${ltr("36.1–37.4")}")
     }
 
     /** يثبّت اتجاه المدى من اليسار إلى اليمين داخل جملة عربية، فلا يظهر «100-60» */
@@ -114,9 +127,9 @@ object VitalRanges {
 
     /** نصيحة هادئة لقراءة خارج الطبيعي */
     fun advice(status: VitalStatus): String? = when {
-        status.urgent -> "قراءة تحتاج انتباهًا. إن شعرت بتعب أو دوخة أو ألم فاتصل بطبيبك أو بالإسعاف 997."
+        status.urgent -> tr("قراءة تحتاج انتباهًا. إن شعرت بتعب أو دوخة أو ألم فاتصل بطبيبك أو بالإسعاف 997.", "This reading needs attention. If you feel tired, dizzy or in pain, call your doctor or an ambulance (997).")
         status == VitalStatus.NORMAL -> null
-        else -> "أعد القياس بعد راحة خمس دقائق، وإن تكررت فاستشر طبيبك."
+        else -> tr("أعد القياس بعد راحة خمس دقائق، وإن تكررت فاستشر طبيبك.", "Measure again after resting five minutes; if it repeats, consult your doctor.")
     }
 
     /** الحدود المقبولة للإدخال، لمنع الأخطاء الكتابية */

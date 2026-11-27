@@ -35,9 +35,9 @@ export async function register(request: Request, env: Env) {
        VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
     ).bind(profileId, fullName, phone, email, parseGender(body.gender), now, now),
     env.DB.prepare(
-      `INSERT INTO devices (id, profile_id, secret_hash, platform, timezone, created_at, last_seen_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).bind(deviceId, profileId, secretHash, platform, validTimezone(request.headers.get('X-Timezone')), now, now),
+      `INSERT INTO devices (id, profile_id, secret_hash, platform, timezone, language, created_at, last_seen_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(deviceId, profileId, secretHash, platform, validTimezone(request.headers.get('X-Timezone')), validLanguage(request.headers.get('X-Language')), now, now),
   ]);
 
   return { device_id: deviceId, token: `${deviceId}.${secret}` };
@@ -50,10 +50,10 @@ export async function authenticate(request: Request, env: Env): Promise<AuthCont
   const [, deviceId, secret] = match;
 
   const device = await env.DB.prepare(
-    'SELECT profile_id, secret_hash, last_seen_at, timezone FROM devices WHERE id = ? AND revoked_at IS NULL',
+    'SELECT profile_id, secret_hash, last_seen_at, timezone, language FROM devices WHERE id = ? AND revoked_at IS NULL',
   )
     .bind(deviceId)
-    .first<{ profile_id: string; secret_hash: string; last_seen_at: string; timezone: string | null }>();
+    .first<{ profile_id: string; secret_hash: string; last_seen_at: string; timezone: string | null; language: string | null }>();
   if (!device || !(await hashesEqual(await sha256Hex(secret), device.secret_hash))) {
     throw new HttpError(401, 'unauthorized');
   }
@@ -61,13 +61,21 @@ export async function authenticate(request: Request, env: Env): Promise<AuthCont
   // Avoid a write on every request: refresh last_seen_at at most once an hour, or when the phone's zone changed.
   const timezone = validTimezone(request.headers.get('X-Timezone'));
   const zoneChanged = timezone !== null && timezone !== device.timezone;
-  if (zoneChanged || Date.now() - Date.parse(device.last_seen_at) > 60 * 60 * 1000) {
-    await env.DB.prepare('UPDATE devices SET last_seen_at = ?, timezone = COALESCE(?, timezone) WHERE id = ?')
-      .bind(nowIso(), timezone, deviceId)
+  // The interface language: family messages to this person are written in it.
+  const language = validLanguage(request.headers.get('X-Language'));
+  const languageChanged = language !== null && language !== device.language;
+  if (zoneChanged || languageChanged || Date.now() - Date.parse(device.last_seen_at) > 60 * 60 * 1000) {
+    await env.DB.prepare('UPDATE devices SET last_seen_at = ?, timezone = COALESCE(?, timezone), language = COALESCE(?, language) WHERE id = ?')
+      .bind(nowIso(), timezone, language, deviceId)
       .run();
   }
 
   return { deviceId, profileId: device.profile_id };
+}
+
+/** "ar" or "en", else null */
+export function validLanguage(value: string | null | undefined) {
+  return value === 'ar' || value === 'en' ? value : null;
 }
 
 /** An IANA zone name the runtime knows (e.g. "Asia/Riyadh"), else null. */

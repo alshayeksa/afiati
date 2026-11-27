@@ -109,8 +109,8 @@ export async function joinFamily(request: Request, env: Env, auth: AuthContext, 
     const caregiver = await profileName(env, auth.profileId);
     await notifyUser(env, invite.patient_id, {
       type: 'invite_request',
-      title: 'طلب متابعة جديد',
-      body: `${caregiver || 'أحد أفراد العائلة'} يريد متابعة أدويتك`,
+      title: { ar: 'طلب متابعة جديد', en: 'New follow request' },
+      body: { ar: `${caregiver || 'أحد أفراد العائلة'} يريد متابعة أدويتك`, en: `${caregiver || 'A family member'} wants to follow your medicines` },
       data: { caregiver_id: auth.profileId },
     }, waitUntil);
   }
@@ -142,8 +142,10 @@ export async function respondToRequest(request: Request, env: Env, auth: AuthCon
 
   await notifyUser(env, caregiverId, {
     type: 'invite_response',
-    title: action === 'approve' ? 'تم القبول' : 'تم الرفض',
-    body: action === 'approve' ? 'تم قبول طلب المتابعة' : 'لم يتم قبول طلب المتابعة',
+    title: action === 'approve' ? { ar: 'تم القبول', en: 'Approved' } : { ar: 'تم الرفض', en: 'Declined' },
+    body: action === 'approve'
+      ? { ar: 'تم قبول طلب المتابعة', en: 'Your follow request was approved' }
+      : { ar: 'لم يتم قبول طلب المتابعة', en: "Your follow request wasn't approved" },
     data: { status, patient_id: auth.profileId },
   }, waitUntil);
   return { status };
@@ -191,8 +193,8 @@ export async function remindPatient(env: Env, auth: AuthContext, patientId: stri
   const caregiver = await profileName(env, auth.profileId);
   await notifyUser(env, patientId, {
     type: 'family_reminder',
-    title: 'تذكير من العائلة',
-    body: `${caregiver || 'أحد أفراد عائلتك'} يذكّرك بلطف بمراجعة جرعاتك اليوم`,
+    title: { ar: 'تذكير من العائلة', en: 'A reminder from family' },
+    body: { ar: `${caregiver || 'أحد أفراد عائلتك'} يذكّرك بلطف بمراجعة جرعاتك اليوم`, en: `${caregiver || 'A family member'} gently reminds you to check today's doses` },
     data: { caregiver_id: auth.profileId },
     channelId: 'medication-reminders',
   }, waitUntil);

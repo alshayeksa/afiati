@@ -1,5 +1,7 @@
 package com.alshayeksa.afiati.ui
 
+import com.alshayeksa.afiati.Lang
+import com.alshayeksa.afiati.tr
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -73,15 +75,15 @@ import com.alshayeksa.afiati.sync.SyncStatus
 @Composable
 fun GenderPicker(gender: String?, onChange: (String) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Chip("رجل", gender == Gender.MALE, Modifier.weight(1f)) { onChange(Gender.MALE) }
-        Chip("امرأة", gender == Gender.FEMALE, Modifier.weight(1f)) { onChange(Gender.FEMALE) }
+        Chip(tr("رجل", "Man"), gender == Gender.MALE, Modifier.weight(1f)) { onChange(Gender.MALE) }
+        Chip(tr("امرأة", "Woman"), gender == Gender.FEMALE, Modifier.weight(1f)) { onChange(Gender.FEMALE) }
     }
 }
 
 fun validateProfile(name: String, phone: String, email: String): String? = when {
-    name.trim().length < 2 -> "اكتب اسمك كما تحب أن يراه أهلك."
-    phone.count(Char::isDigit) < 9 -> "أدخل رقم جوال صحيحًا."
-    email.isNotBlank() && !Regex("^\\S+@\\S+\\.\\S+$").matches(email.trim()) -> "البريد غير صحيح. صححه أو اتركه فارغًا."
+    name.trim().length < 2 -> tr("اكتب اسمك كما تحب أن يراه أهلك.", "Type your name as you'd like your family to see it.")
+    phone.count(Char::isDigit) < 9 -> tr("أدخل رقم جوال صحيحًا.", "Enter a valid mobile number.")
+    email.isNotBlank() && !Regex("^\\S+@\\S+\\.\\S+$").matches(email.trim()) -> tr("البريد غير صحيح. صححه أو اتركه فارغًا.", "The email isn't valid. Fix it or leave it empty.")
     else -> null
 }
 
@@ -96,23 +98,23 @@ fun ProfileSheet(onDismiss: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     val changed = name != patient.fullName || phone != patient.phone || email != patient.email.orEmpty() || gender != patient.gender
 
-    AfiatiSheet("ملفي", onDismiss) {
+    AfiatiSheet(tr("ملفي", "My profile"), onDismiss) {
         Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AvatarView(name.ifBlank { patient.fullName }, patient.id, size = 84.dp, color = Brand.green)
             Text(name.ifBlank { patient.fullName }, style = tajawal(26, FontWeight.Bold))
-            StatusLine(Brand.glow, "ملفك محفوظ على جوالك")
+            StatusLine(Brand.glow, tr("ملفك محفوظ على جوالك", "Your profile is saved on your phone"))
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            FieldLabel("الاسم كما يراه أهلك")
-            GlassField(name, { name = it; error = null }, "الاسم")
-            FieldLabel("رقم الجوال")
+            FieldLabel(tr("الاسم كما يراه أهلك", "Name as your family sees it"))
+            GlassField(name, { name = it; error = null }, tr("الاسم", "Name"))
+            FieldLabel(tr("رقم الجوال", "Mobile number"))
             GlassField(phone, { phone = it; error = null }, "05xxxxxxxx", keyboard = KeyboardOptions(keyboardType = KeyboardType.Phone), ltr = true)
-            FieldLabel("أنا")
+            FieldLabel(tr("أنا", "I am"))
             GenderPicker(gender) { gender = it; error = null }
-            FieldLabel("البريد الإلكتروني (اختياري)")
+            FieldLabel(tr("البريد الإلكتروني (اختياري)", "Email (optional)"))
             GlassField(email, { email = it; error = null }, "name@example.com", keyboard = KeyboardOptions(keyboardType = KeyboardType.Email), ltr = true)
             error?.let { Text(it, style = tajawal(16, FontWeight.Medium, Brand.danger)) }
-            PrimaryButton("حفظ التعديلات", Modifier.padding(top = 8.dp), icon = Icons.Filled.Save, enabled = changed) {
+            PrimaryButton(tr("حفظ التعديلات", "Save changes"), Modifier.padding(top = 8.dp), icon = Icons.Filled.Save, enabled = changed) {
                 error = validateProfile(name, phone, email)
                 if (error == null) {
                     AppModel.updatePatient(name, phone, email.ifBlank { null }, gender)
@@ -120,7 +122,7 @@ fun ProfileSheet(onDismiss: () -> Unit) {
                 }
             }
             Text(
-                "لا نطلب كلمة مرور. بياناتك على جوالك، وتُنسخ إلى خادم عافيتي عند توفر الإنترنت لتصل لمن توافق عليهم من عائلتك فقط.",
+                tr("لا نطلب كلمة مرور. بياناتك على جوالك، وتُنسخ إلى خادم عافيتي عند توفر الإنترنت لتصل لمن توافق عليهم من عائلتك فقط.", "No password needed. Your data is on your phone and is copied to the Afiati server when online, reaching only the family members you approve."),
                 style = tajawal(15, color = Brand.secondaryText),
             )
         }
@@ -140,18 +142,24 @@ fun SettingsSheet(onDismiss: () -> Unit) {
     val exactAllowed = remember(tick) { Reminders.canScheduleExact(context) }
     LaunchedEffect(exactAllowed) { if (exactAllowed) runCatching { Reminders.reschedule(context) } }
 
-    AfiatiSheet("الإعدادات", onDismiss) {
+    AfiatiSheet(tr("الإعدادات", "Settings"), onDismiss) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            FieldLabel("التذكيرات")
+            FieldLabel("اللغة · Language")
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Chip("العربية", !Lang.english, Modifier.weight(1f)) { AppModel.setLanguage(context, false) }
+                Chip("English", Lang.english, Modifier.weight(1f)) { AppModel.setLanguage(context, true) }
+            }
+
+            FieldLabel(tr("التذكيرات", "Reminders"), Modifier.padding(top = 10.dp))
             PermissionRow(
-                Icons.Filled.Notifications, "إشعارات الأدوية",
-                if (notificationsAllowed) "مفعّلة" else "متوقفة · لن تصلك التذكيرات", notificationsAllowed,
+                Icons.Filled.Notifications, tr("إشعارات الأدوية", "Medicine notifications"),
+                if (notificationsAllowed) tr("مفعّلة", "On") else tr("متوقفة · لن تصلك التذكيرات", "Off · you won't get reminders"), notificationsAllowed,
             ) {
                 context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
             }
             PermissionRow(
-                Icons.Filled.AlarmOn, "التذكير في الوقت الدقيق",
-                if (exactAllowed) "مفعّل" else "متوقف · قد يتأخر التذكير دقائق", exactAllowed,
+                Icons.Filled.AlarmOn, tr("التذكير في الوقت الدقيق", "Exact-time reminders"),
+                if (exactAllowed) tr("مفعّل", "On") else tr("متوقف · قد يتأخر التذكير دقائق", "Off · reminders may be a few minutes late"), exactAllowed,
             ) {
                 if (Build.VERSION.SDK_INT >= 31) {
                     runCatching {
@@ -164,16 +172,16 @@ fun SettingsSheet(onDismiss: () -> Unit) {
             val locationAllowed = remember(tick, locationAsked) { HelpLocation.granted(context) }
             val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { locationAsked++ }
             PermissionRow(
-                Icons.Filled.LocationOn, "موقعي مع طلب المساعدة",
-                if (locationAllowed) "مسموح · يصل موقعك لعائلتك على خرائط Google" else "غير مسموح · اضغط للسماح", locationAllowed,
+                Icons.Filled.LocationOn, tr("موقعي مع طلب المساعدة", "My location with help requests"),
+                if (locationAllowed) tr("مسموح · يصل موقعك لعائلتك على خرائط Google", "Allowed · your family sees your location on Google Maps") else tr("غير مسموح · اضغط للسماح", "Not allowed · tap to allow"), locationAllowed,
             ) {
                 askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
             }
 
-            FieldLabel("رقم للطوارئ", Modifier.padding(top = 10.dp))
+            FieldLabel(tr("رقم للطوارئ", "Emergency number"), Modifier.padding(top = 10.dp))
             EmergencyContactCard()
 
-            FieldLabel("المظهر", Modifier.padding(top = 10.dp))
+            FieldLabel(tr("المظهر", "Appearance"), Modifier.padding(top = 10.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 ThemeAccent.entries.forEach { accent -> AccentSwatch(accent, Appearance.accent == accent) { Appearance.apply(accent, Appearance.mode) } }
             }
@@ -188,14 +196,14 @@ fun SettingsSheet(onDismiss: () -> Unit) {
             ) {
                 Icon(Icons.Filled.TextFields, null, tint = Brand.glow, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(12.dp))
-                Text("خط أكبر", style = tajawal(18, FontWeight.Medium), modifier = Modifier.weight(1f))
+                Text(tr("خط أكبر", "Larger text"), style = tajawal(18, FontWeight.Medium), modifier = Modifier.weight(1f))
                 Switch(
                     Appearance.largeText, { Appearance.toggleLargeText(it) },
                     colors = SwitchDefaults.colors(checkedTrackColor = Brand.mint, checkedThumbColor = Brand.text, uncheckedTrackColor = Brand.text.copy(alpha = 0.1f)),
                 )
             }
 
-            FieldLabel("المزامنة", Modifier.padding(top = 10.dp))
+            FieldLabel(tr("المزامنة", "Sync"), Modifier.padding(top = 10.dp))
             SyncCard()
         }
     }
@@ -207,28 +215,28 @@ const val DEVELOPER_SITE = "https://alshaye.ai"
 @Composable
 fun AboutSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
-    AfiatiSheet("عن التطبيق", onDismiss) {
+    AfiatiSheet(tr("عن التطبيق", "About"), onDismiss) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(
                 Modifier.fillMaxWidth().glass(RoundedCornerShape(24.dp)).padding(22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 LogoView(84.dp)
-                Text("عافيتي", style = tajawal(30, FontWeight.Bold))
-                Text("مساعدك الأمين لمواعيد الأدوية، وطمأنينة لعائلتك.", style = tajawal(17, color = Brand.secondaryText), textAlign = TextAlign.Center)
-                Text("الإصدار ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", style = tajawal(14, color = Brand.secondaryText))
+                Text(tr("عافيتي", "Afiati"), style = tajawal(30, FontWeight.Bold))
+                Text(tr("مساعدك الأمين لمواعيد الأدوية، وطمأنينة لعائلتك.", "Your trusted companion for medicine times, and peace of mind for your family."), style = tajawal(17, color = Brand.secondaryText), textAlign = TextAlign.Center)
+                Text(tr("الإصدار ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"), style = tajawal(14, color = Brand.secondaryText))
             }
             Column(
                 Modifier.fillMaxWidth().glass(RoundedCornerShape(24.dp)).padding(22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text("تطوير", style = tajawal(15, color = Brand.secondaryText))
-                Text("شايع الشايع", style = tajawal(26, FontWeight.Bold))
-                Text("مطور وخبير ذكاء اصطناعي", style = tajawal(17, color = Brand.secondaryText), textAlign = TextAlign.Center)
+                Text(tr("تطوير", "Developed by"), style = tajawal(15, color = Brand.secondaryText))
+                Text(tr("شايع الشايع", "Shaye Alshaye"), style = tajawal(26, FontWeight.Bold))
+                Text(tr("مطور وخبير ذكاء اصطناعي", "Developer & AI Expert"), style = tajawal(17, color = Brand.secondaryText), textAlign = TextAlign.Center)
                 Spacer(Modifier.height(6.dp))
                 GlassButton("alshaye.ai", icon = Icons.Filled.Language) {
                     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(DEVELOPER_SITE)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                        .onFailure { AppModel.toast = "لا يوجد متصفح لفتح الموقع" }
+                        .onFailure { AppModel.toast = tr("لا يوجد متصفح لفتح الموقع", "No browser to open the site") }
                 }
             }
         }
@@ -242,12 +250,12 @@ private fun EmergencyContactCard() {
     var phone by remember { mutableStateOf(AppModel.emergencyPhone) }
     val changed = name != AppModel.emergencyName || phone != AppModel.emergencyPhone
     Column(Modifier.fillMaxWidth().glass(RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("يظهر زر الاتصال به في شاشة المساعدة، ويعمل حتى بدون إنترنت.", style = tajawal(15, color = Brand.secondaryText))
-        GlassField(name, { name = it }, "الاسم (مثلًا: ابني خالد)")
+        Text(tr("يظهر زر الاتصال به في شاشة المساعدة، ويعمل حتى بدون إنترنت.", "A button to call them appears on the help screen, and it works even without internet."), style = tajawal(15, color = Brand.secondaryText))
+        GlassField(name, { name = it }, tr("الاسم (مثلًا: ابني خالد)", "Name (e.g. my son Khalid)"))
         GlassField(phone, { phone = it }, "05xxxxxxxx", keyboard = KeyboardOptions(keyboardType = KeyboardType.Phone), ltr = true)
-        GlassButton(if (changed) "حفظ الرقم" else "محفوظ", icon = Icons.Filled.Save, enabled = changed && phone.count(Char::isDigit) >= 3) {
+        GlassButton(if (changed) tr("حفظ الرقم", "Save number") else tr("محفوظ", "Saved"), icon = Icons.Filled.Save, enabled = changed && phone.count(Char::isDigit) >= 3) {
             AppModel.saveEmergencyContact(name, phone)
-            AppModel.toast = "حُفظ رقم الطوارئ"
+            AppModel.toast = tr("حُفظ رقم الطوارئ", "Emergency number saved")
         }
     }
 }
@@ -264,7 +272,7 @@ private fun PermissionRow(icon: ImageVector, title: String, status: String, ok: 
             Text(title, style = tajawal(18, FontWeight.Medium))
             Text(status, style = tajawal(15, color = if (ok) Brand.secondaryText else Brand.warning))
         }
-        if (!ok) Text("تفعيل", style = tajawal(17, FontWeight.Bold, Brand.glow))
+        if (!ok) Text(tr("تفعيل", "Turn on"), style = tajawal(17, FontWeight.Bold, Brand.glow))
     }
 }
 
@@ -282,11 +290,11 @@ private fun AccentSwatch(accent: ThemeAccent, selected: Boolean, onClick: () -> 
 private fun SyncCard() {
     val sync = AppModel.sync
     val (icon, color, title) = when {
-        sync.running -> Triple(Icons.Filled.Sync, Brand.warning, "جاري المزامنة…")
-        sync.status == SyncStatus.SYNCED && sync.pending == 0 -> Triple(Icons.Filled.CloudDone, Brand.glow, "كل شيء متزامن")
-        sync.status == SyncStatus.FAILED -> Triple(Icons.Filled.Warning, Brand.danger, "تعذّرت المزامنة")
-        sync.status == SyncStatus.NOT_CONFIGURED -> Triple(Icons.Filled.CloudOff, Brand.secondaryText, "المزامنة غير مفعّلة")
-        else -> Triple(Icons.Filled.CloudOff, Brand.warning, "بانتظار الإنترنت")
+        sync.running -> Triple(Icons.Filled.Sync, Brand.warning, tr("جاري المزامنة…", "Syncing…"))
+        sync.status == SyncStatus.SYNCED && sync.pending == 0 -> Triple(Icons.Filled.CloudDone, Brand.glow, tr("كل شيء متزامن", "Everything is synced"))
+        sync.status == SyncStatus.FAILED -> Triple(Icons.Filled.Warning, Brand.danger, tr("تعذّرت المزامنة", "Sync failed"))
+        sync.status == SyncStatus.NOT_CONFIGURED -> Triple(Icons.Filled.CloudOff, Brand.secondaryText, tr("المزامنة غير مفعّلة", "Sync is off"))
+        else -> Triple(Icons.Filled.CloudOff, Brand.warning, tr("بانتظار الإنترنت", "Waiting for internet"))
     }
     Column(Modifier.fillMaxWidth().glass(RoundedCornerShape(24.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -296,14 +304,14 @@ private fun SyncCard() {
         }
         Text(
             when {
-                sync.pending > 0 -> "${sync.pending} ${if (sync.pending in 3..10) "تغييرات" else "تغيير"} محفوظة على جوالك وتُرفع تلقائيًا."
-                else -> "كل تغييراتك محفوظة على جوالك وفي الخادم."
+                sync.pending > 0 -> tr("${sync.pending} ${if (sync.pending in 3..10) "تغييرات" else "تغيير"} محفوظة على جوالك وتُرفع تلقائيًا.", "${sync.pending} ${if (sync.pending == 1) "change" else "changes"} saved on your phone, uploading automatically.")
+                else -> tr("كل تغييراتك محفوظة على جوالك وفي الخادم.", "All your changes are saved on your phone and on the server.")
             },
             style = tajawal(16, color = Brand.secondaryText),
         )
-        sync.lastSync?.let { Text("آخر مزامنة ${Format.relative(it)}", style = tajawal(15, color = Brand.secondaryText)) }
+        sync.lastSync?.let { Text(tr("آخر مزامنة ${Format.relative(it)}", "Last sync ${Format.relative(it)}"), style = tajawal(15, color = Brand.secondaryText)) }
         sync.error?.takeIf { sync.status == SyncStatus.FAILED }?.let { Text(it, style = tajawal(15, color = Brand.danger)) }
-        GlassButton("زامن الآن", icon = Icons.Filled.Sync, enabled = !sync.running) { AppModel.syncNow() }
+        GlassButton(tr("زامن الآن", "Sync now"), icon = Icons.Filled.Sync, enabled = !sync.running) { AppModel.syncNow() }
     }
 }
 
@@ -312,13 +320,13 @@ private fun SyncCard() {
 fun NotificationsSheet(onDismiss: () -> Unit) {
     LaunchedEffect(Unit) { AppModel.refreshNotifications() }
     val items = AppModel.notifications
-    AfiatiSheet("الإشعارات", onDismiss) {
+    AfiatiSheet(tr("الإشعارات", "Notifications"), onDismiss) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (items.isEmpty()) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 30.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Filled.Notifications, null, tint = Brand.secondaryText, modifier = Modifier.size(48.dp))
-                    Text("لا توجد إشعارات", style = tajawal(20, FontWeight.Bold))
-                    Text("هنا تظهر طلبات المتابعة وتذكيرات عائلتك.", style = tajawal(16, color = Brand.secondaryText), textAlign = TextAlign.Center)
+                    Text(tr("لا توجد إشعارات", "No notifications"), style = tajawal(20, FontWeight.Bold))
+                    Text(tr("هنا تظهر طلبات المتابعة وتذكيرات عائلتك.", "Follow requests and reminders from your family appear here."), style = tajawal(16, color = Brand.secondaryText), textAlign = TextAlign.Center)
                 }
             }
             items.forEach { item ->
@@ -342,7 +350,7 @@ fun NotificationsSheet(onDismiss: () -> Unit) {
                     if (!item.read) Box(Modifier.size(10.dp).background(Brand.glow, CircleShape))
                 }
             }
-            if (items.any { !it.read }) GlassButton("تحديد الكل كمقروء", Modifier.padding(top = 6.dp)) { AppModel.markAllRead() }
+            if (items.any { !it.read }) GlassButton(tr("تحديد الكل كمقروء", "Mark all as read"), Modifier.padding(top = 6.dp)) { AppModel.markAllRead() }
         }
     }
 }

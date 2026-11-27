@@ -50,7 +50,8 @@ async function route(request: Request, env: Env, waitUntil: (promise: Promise<un
 
   // Daily greetings (table greetings, editable in D1). Public: same list for everyone, no personal data.
   if (method === 'GET' && pathname === '/v1/greetings') {
-    const { results } = await env.DB.prepare('SELECT id, text FROM greetings WHERE is_active = 1 ORDER BY id').all<{ id: number; text: string }>();
+    const { results } = await env.DB.prepare('SELECT id, text, text_en FROM greetings WHERE is_active = 1 ORDER BY id')
+      .all<{ id: number; text: string; text_en: string | null }>();
     return json({ greetings: results });
   }
 

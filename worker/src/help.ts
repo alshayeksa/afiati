@@ -99,18 +99,25 @@ async function toApi(env: Env, row: HelpRow, forCaregiver: boolean) {
   };
 }
 
-/** The urgent alert to relatives. Exported for tests of the wording. */
+/** The urgent alert to relatives, in Arabic and English. Exported for tests of the wording. */
 export function helpAlert(patient: { name: string; gender: Gender; phone: string | null }, row: HelpRow, zone: string | null, repeat: boolean) {
   const { name, gender } = patient;
   const needs = g(gender, 'يحتاج', 'تحتاج');
-  const title = repeat
-    ? `تذكير عاجل: ${name} ${g(gender, 'ما زال', 'ما زالت')} ${needs} مساعدة`
-    : `${name} ${needs} مساعدة`;
-  const parts: string[] = [];
-  if (row.message) parts.push(`«${row.message}».`);
-  parts.push(`${g(gender, 'ضغط', 'ضغطت')} زر المساعدة الساعة ${clock(row.created_at, zone)}.`);
-  if (hasLocation(row)) parts.push(`${g(gender, 'موقعه', 'موقعها')} مرفق، اضغط «الخريطة».`);
-  parts.push(`${g(gender, 'اتصل به', 'اتصل بها')} أو اضغط «أنا قادم».`);
+  const located = hasLocation(row);
+  const ar: string[] = [];
+  const en: string[] = [];
+  if (row.message) {
+    ar.push(`«${row.message}».`);
+    en.push(`“${row.message}”.`);
+  }
+  ar.push(`${g(gender, 'ضغط', 'ضغطت')} زر المساعدة الساعة ${clock(row.created_at, zone)}.`);
+  en.push(`Pressed the help button at ${clock(row.created_at, zone, 'en')}.`);
+  if (located) {
+    ar.push(`${g(gender, 'موقعه', 'موقعها')} مرفق، اضغط «الخريطة».`);
+    en.push('Location attached — tap “Map”.');
+  }
+  ar.push(`${g(gender, 'اتصل به', 'اتصل بها')} أو اضغط «أنا قادم».`);
+  en.push("Call them or tap “I'm coming”.");
   const data: Record<string, unknown> = {
     help_id: row.id,
     patient_id: row.patient_id,
@@ -118,12 +125,21 @@ export function helpAlert(patient: { name: string; gender: Gender; phone: string
     patient_gender: gender ?? '',
     phone: patient.phone ?? '',
   };
-  if (hasLocation(row)) {
+  if (located) {
     data.latitude = row.latitude;
     data.longitude = row.longitude;
     data.map_url = mapUrl(row.latitude!, row.longitude!);
   }
-  return { type: 'help_request', title, body: parts.join(' '), data, channelId: HELP_CHANNEL, priority: 'high' as const };
+  return {
+    type: 'help_request',
+    title: repeat
+      ? { ar: `تذكير عاجل: ${name} ${g(gender, 'ما زال', 'ما زالت')} ${needs} مساعدة`, en: `Urgent reminder: ${name} still needs help` }
+      : { ar: `${name} ${needs} مساعدة`, en: `${name} needs help` },
+    body: { ar: ar.join(' '), en: en.join(' ') },
+    data,
+    channelId: HELP_CHANNEL,
+    priority: 'high' as const,
+  };
 }
 
 async function pushToFamily(env: Env, row: HelpRow, waitUntil: Waiter, repeat: boolean, log = !repeat) {
@@ -212,8 +228,8 @@ export async function updateHelpLocation(request: Request, env: Env, auth: AuthC
     for (const member of await followers(env, row.patient_id)) {
       await notifyUser(env, member.id, {
         type: 'help_location',
-        title: `موقع ${name}`,
-        body: `وصل موقع ${name} الآن. اضغط «الخريطة».`,
+        title: { ar: `موقع ${name}`, en: `${name}'s location` },
+        body: { ar: `وصل موقع ${name} الآن. اضغط «الخريطة».`, en: `${name}'s location just arrived. Tap “Map”.` },
         data: { help_id: id, patient_id: row.patient_id, latitude: location.latitude, longitude: location.longitude, map_url: mapUrl(location.latitude, location.longitude) },
         channelId: 'family',
       }, waitUntil, { log: false });
@@ -259,8 +275,8 @@ export async function acknowledgeHelp(env: Env, auth: AuthContext, id: string, w
     const pg = patient?.gender ?? null;
     await notifyUser(env, row.patient_id, {
       type: 'help_ack',
-      title: `${responderName} ${g(rg, 'قادم', 'قادمة')} إليك`,
-      body: `وصل طلبك. ${g(pg, 'ابق في مكانك واطمئن.', 'ابقي في مكانك واطمئني.')}`,
+      title: { ar: `${responderName} ${g(rg, 'قادم', 'قادمة')} إليك`, en: `${responderName} is coming to you` },
+      body: { ar: `وصل طلبك. ${g(pg, 'ابق في مكانك واطمئن.', 'ابقي في مكانك واطمئني.')}`, en: 'Your request arrived. Stay where you are and relax.' },
       data: { help_id: id },
       channelId: HELP_CHANNEL,
       priority: 'high',
@@ -269,8 +285,11 @@ export async function acknowledgeHelp(env: Env, auth: AuthContext, id: string, w
       if (member.id === auth.profileId) continue;
       await notifyUser(env, member.id, {
         type: 'help_update',
-        title: `${responderName} ${g(rg, 'استجاب', 'استجابت')}`,
-        body: `${responderName} ${g(rg, 'في طريقه', 'في طريقها')} إلى ${patient?.full_name ?? ''}.`,
+        title: { ar: `${responderName} ${g(rg, 'استجاب', 'استجابت')}`, en: `${responderName} responded` },
+        body: {
+          ar: `${responderName} ${g(rg, 'في طريقه', 'في طريقها')} إلى ${patient?.full_name ?? ''}.`,
+          en: `${responderName} is on the way to ${patient?.full_name ?? ''}.`,
+        },
         data: { help_id: id, patient_id: row.patient_id },
         channelId: 'family',
       }, waitUntil);
@@ -292,10 +311,10 @@ export async function resolveHelp(env: Env, auth: AuthContext, id: string, waitU
   for (const member of await followers(env, row.patient_id)) {
     await notifyUser(env, member.id, {
       type: 'help_resolved',
-      title: `${patient?.full_name ?? ''} بخير الآن`,
+      title: { ar: `${patient?.full_name ?? ''} بخير الآن`, en: `${patient?.full_name ?? ''} is okay now` },
       body: status === 'cancelled'
-        ? `${g(pg, 'ألغى طلب المساعدة وطمأنكم أنه بخير.', 'ألغت طلب المساعدة وطمأنتكم أنها بخير.')}`
-        : `${g(pg, 'أكّد أنه بخير.', 'أكّدت أنها بخير.')} شكرًا لاستجابتكم.`,
+        ? { ar: g(pg, 'ألغى طلب المساعدة وطمأنكم أنه بخير.', 'ألغت طلب المساعدة وطمأنتكم أنها بخير.'), en: "Cancelled the help request and says they're okay." }
+        : { ar: `${g(pg, 'أكّد أنه بخير.', 'أكّدت أنها بخير.')} شكرًا لاستجابتكم.`, en: "Confirmed they're okay. Thank you for responding." },
       data: { help_id: id, patient_id: row.patient_id },
       channelId: 'family',
     }, waitUntil);

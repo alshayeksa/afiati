@@ -1,5 +1,6 @@
 package com.alshayeksa.afiati.ui
 
+import com.alshayeksa.afiati.tr
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -101,7 +102,7 @@ fun HelpCard(onOpen: () -> Unit) {
         Modifier.padding(horizontal = 14.dp).padding(top = 6.dp, bottom = 12.dp).fillMaxWidth().clip(shape)
             .background(Brush.horizontalGradient(listOf(Red.copy(alpha = if (active != null) 0.34f else 0.20f), Red.copy(alpha = 0.06f))))
             .border(1.5.dp, Red.copy(alpha = 0.6f), shape)
-            .clickable(role = Role.Button, onClickLabel = "طلب مساعدة من العائلة", onClick = onOpen)
+            .clickable(role = Role.Button, onClickLabel = tr("طلب مساعدة من العائلة", "Ask your family for help"), onClick = onOpen)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -114,16 +115,16 @@ fun HelpCard(onOpen: () -> Unit) {
         Column(Modifier.weight(1f)) {
             when {
                 active == null -> {
-                    Text("أحتاج مساعدة", style = tajawal(20, FontWeight.Bold))
-                    Text("تنبيه عاجل لكل من يتابعك من عائلتك", style = tajawal(14, color = Brand.secondaryText))
+                    Text(tr("أحتاج مساعدة", "I need help"), style = tajawal(20, FontWeight.Bold))
+                    Text(tr("تنبيه عاجل لكل من يتابعك من عائلتك", "An urgent alert to everyone in your family who follows you"), style = tajawal(14, color = Brand.secondaryText))
                 }
                 active.answered -> {
-                    Text("${active.acknowledgedByName ?: "أحد أفراد عائلتك"} ${Gender.pick(active.acknowledgedByGender, "قادم", "قادمة")} إليك", style = tajawal(19, FontWeight.Bold))
-                    Text("اضغط إذا صرت بخير", style = tajawal(14, color = Brand.secondaryText))
+                    Text(tr("${active.acknowledgedByName ?: "أحد أفراد عائلتك"} ${Gender.pick(active.acknowledgedByGender, "قادم", "قادمة")} إليك", "${active.acknowledgedByName ?: "A family member"} is coming to you"), style = tajawal(19, FontWeight.Bold))
+                    Text(tr("اضغط إذا صرت بخير", "Tap when you're okay"), style = tajawal(14, color = Brand.secondaryText))
                 }
                 else -> {
-                    Text("أُرسل طلب المساعدة", style = tajawal(19, FontWeight.Bold))
-                    Text("ننتظر رد عائلتك · اضغط للتفاصيل", style = tajawal(14, color = Brand.secondaryText))
+                    Text(tr("أُرسل طلب المساعدة", "Help request sent"), style = tajawal(19, FontWeight.Bold))
+                    Text(tr("ننتظر رد عائلتك · اضغط للتفاصيل", "Waiting for your family · tap for details"), style = tajawal(14, color = Brand.secondaryText))
                 }
             }
         }
@@ -133,7 +134,7 @@ fun HelpCard(onOpen: () -> Unit) {
 private enum class Phase { COUNTDOWN, SENDING, SENT, FAILED }
 
 /** أسباب جاهزة يختارها الكبير بضغطة بدل الكتابة */
-private val HELP_REASONS = listOf("سقطت", "أشعر بدوخة", "ألم في الصدر", "ضيق في التنفس")
+private val HELP_REASONS get() = listOf(tr("سقطت", "I fell"), tr("أشعر بدوخة", "I feel dizzy"), tr("ألم في الصدر", "Chest pain"), tr("ضيق في التنفس", "Shortness of breath"))
 
 /** حالة الموقع في شاشة «وصل التنبيه» */
 @Composable
@@ -142,11 +143,11 @@ private fun LocationStatus(shared: Boolean, granted: Boolean, enabled: Boolean, 
         shared -> Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.LocationOn, null, tint = Brand.mint, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(6.dp))
-            Text("وصل موقعك لعائلتك على الخريطة", style = tajawal(17, FontWeight.Medium, Brand.mint))
+            Text(tr("وصل موقعك لعائلتك على الخريطة", "Your location reached your family on the map"), style = tajawal(17, FontWeight.Medium, Brand.mint))
         }
-        !granted -> GlassButton("أرسل موقعي لعائلتك", icon = Icons.Filled.LocationOn, onClick = onAllow)
-        !enabled -> GlassButton("الموقع متوقف في جوالك · اضغط لتشغيله", icon = Icons.Filled.LocationOff, color = Brand.warning, onClick = onSettings)
-        else -> Text("جارٍ تحديد موقعك…", style = tajawal(16, color = Brand.secondaryText))
+        !granted -> GlassButton(tr("أرسل موقعي لعائلتك", "Send my location to my family"), icon = Icons.Filled.LocationOn, onClick = onAllow)
+        !enabled -> GlassButton(tr("الموقع متوقف في جوالك · اضغط لتشغيله", "Location is off on your phone · tap to turn it on"), icon = Icons.Filled.LocationOff, color = Brand.warning, onClick = onSettings)
+        else -> Text(tr("جارٍ تحديد موقعك…", "Finding your location…"), style = tajawal(16, color = Brand.secondaryText))
     }
 }
 
@@ -229,11 +230,11 @@ fun HelpScreen(onClose: () -> Unit) {
         ) {
             when (phase) {
                 Phase.COUNTDOWN -> {
-                    Text("سنرسل تنبيهًا عاجلًا لعائلتك", style = tajawal(26, FontWeight.Bold), textAlign = TextAlign.Center)
-                    Text("خلال ثوانٍ. إن ضغطت بالخطأ اضغط «إلغاء».", style = tajawal(18, color = Brand.secondaryText), textAlign = TextAlign.Center)
+                    Text(tr("سنرسل تنبيهًا عاجلًا لعائلتك", "We'll send an urgent alert to your family"), style = tajawal(26, FontWeight.Bold), textAlign = TextAlign.Center)
+                    Text(tr("خلال ثوانٍ. إن ضغطت بالخطأ اضغط «إلغاء».", "In a few seconds. If you pressed by mistake, tap “Cancel”."), style = tajawal(18, color = Brand.secondaryText), textAlign = TextAlign.Center)
                     Countdown(seconds)
-                    CallButton("أرسل الآن", Icons.Filled.Sos, Red) { seconds = 0; phase = Phase.SENDING }
-                    Text("أو اختر ما حدث، ونرسله فورًا:", style = tajawal(17, color = Brand.secondaryText))
+                    CallButton(tr("أرسل الآن", "Send now"), Icons.Filled.Sos, Red) { seconds = 0; phase = Phase.SENDING }
+                    Text(tr("أو اختر ما حدث، ونرسله فورًا:", "Or pick what happened to send it right away:"), style = tajawal(17, color = Brand.secondaryText))
                     HELP_REASONS.chunked(2).forEach { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             row.forEach { item ->
@@ -241,29 +242,29 @@ fun HelpScreen(onClose: () -> Unit) {
                             }
                         }
                     }
-                    GlassButton("إلغاء، أنا بخير", color = Brand.text) { onClose() }
+                    GlassButton(tr("إلغاء، أنا بخير", "Cancel, I'm fine"), color = Brand.text) { onClose() }
                 }
                 Phase.SENDING -> {
                     Pulse(Icons.Filled.Sos)
-                    Text("جارٍ إرسال التنبيه…", style = tajawal(26, FontWeight.Bold))
+                    Text(tr("جارٍ إرسال التنبيه…", "Sending the alert…"), style = tajawal(26, FontWeight.Bold))
                 }
                 Phase.SENT -> {
                     val answered = help?.answered == true
                     Pulse(if (answered) Icons.Filled.DirectionsRun else Icons.Filled.Check, calm = answered)
                     Text(
                         when {
-                            answered -> "${help?.acknowledgedByName ?: "أحد أفراد عائلتك"} ${Gender.pick(help?.acknowledgedByGender, "قادم", "قادمة")} إليك"
+                            answered -> tr("${help?.acknowledgedByName ?: "أحد أفراد عائلتك"} ${Gender.pick(help?.acknowledgedByGender, "قادم", "قادمة")} إليك", "${help?.acknowledgedByName ?: "A family member"} is coming to you")
                             // لا أحد يتابعه: لا نقول «وصل» وهو لم يصل لأحد
-                            notified == 0 -> "لم يصل التنبيه لأحد"
-                            else -> "وصل التنبيه إلى عائلتك"
+                            notified == 0 -> tr("لم يصل التنبيه لأحد", "The alert reached no one")
+                            else -> tr("وصل التنبيه إلى عائلتك", "The alert reached your family")
                         },
                         style = tajawal(28, FontWeight.Bold), textAlign = TextAlign.Center,
                     )
                     Text(
                         when {
-                            answered -> "ابق في مكانك واطمئن. إن ساء حالك فاتصل بالإسعاف."
-                            notified == 0 -> "لا يتابعك أحد من عائلتك بعد، فلم يصل التنبيه لأحد. اتصل بالإسعاف أو برقم الطوارئ."
-                            else -> "ننتظر ردّهم. سنعيد تنبيههم كل دقيقتين حتى يرد أحدهم."
+                            answered -> tr("ابق في مكانك واطمئن. إن ساء حالك فاتصل بالإسعاف.", "Stay where you are and relax. If you feel worse, call an ambulance.")
+                            notified == 0 -> tr("لا يتابعك أحد من عائلتك بعد، فلم يصل التنبيه لأحد. اتصل بالإسعاف أو برقم الطوارئ.", "No one in your family follows you yet, so the alert reached no one. Call an ambulance or your emergency number.")
+                            else -> tr("ننتظر ردّهم. سنعيد تنبيههم كل دقيقتين حتى يرد أحدهم.", "Waiting for their reply. We'll alert them again every 2 minutes until someone answers.")
                         },
                         style = tajawal(18, color = if (notified == 0 && !answered) Brand.warning else Brand.secondaryText), textAlign = TextAlign.Center,
                     )
@@ -277,20 +278,20 @@ fun HelpScreen(onClose: () -> Unit) {
                 }
                 Phase.FAILED -> {
                     Pulse(Icons.Filled.WifiOff)
-                    Text("تعذّر إرسال التنبيه", style = tajawal(28, FontWeight.Bold))
-                    Text(error ?: "تحقق من الإنترنت.", style = tajawal(18, color = Brand.warning), textAlign = TextAlign.Center)
-                    Text("اتصل مباشرة بالأزرار أدناه، فهي تعمل بدون إنترنت.", style = tajawal(17, color = Brand.secondaryText), textAlign = TextAlign.Center)
-                    GlassButton("حاول مرة أخرى") { error = null; phase = Phase.SENDING; attempt++ }
+                    Text(tr("تعذّر إرسال التنبيه", "Couldn't send the alert"), style = tajawal(28, FontWeight.Bold))
+                    Text(error ?: tr("تحقق من الإنترنت.", "Check your internet connection."), style = tajawal(18, color = Brand.warning), textAlign = TextAlign.Center)
+                    Text(tr("اتصل مباشرة بالأزرار أدناه، فهي تعمل بدون إنترنت.", "Call directly with the buttons below; they work without internet."), style = tajawal(17, color = Brand.secondaryText), textAlign = TextAlign.Center)
+                    GlassButton(tr("حاول مرة أخرى", "Try again")) { error = null; phase = Phase.SENDING; attempt++ }
                 }
             }
         }
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (AppModel.emergencyPhone.isNotBlank()) {
-                CallButton("اتصال بـ ${AppModel.emergencyName.ifBlank { AppModel.emergencyPhone }}", Icons.Filled.Call, Brand.mint) { dial(context, AppModel.emergencyPhone) }
+                CallButton(tr("اتصال بـ ${AppModel.emergencyName.ifBlank { AppModel.emergencyPhone }}", "Call ${AppModel.emergencyName.ifBlank { AppModel.emergencyPhone }}"), Icons.Filled.Call, Brand.mint) { dial(context, AppModel.emergencyPhone) }
             }
-            CallButton("اتصال بالإسعاف $AMBULANCE", Icons.Filled.LocalHospital, Red) { dial(context, AMBULANCE) }
+            CallButton(tr("اتصال بالإسعاف $AMBULANCE", "Call ambulance $AMBULANCE"), Icons.Filled.LocalHospital, Red) { dial(context, AMBULANCE) }
             if (phase == Phase.SENT && help != null) {
-                GlassButton(if (resolving) "جارٍ الإرسال…" else "أنا بخير الآن", icon = Icons.Filled.Check, enabled = !resolving) {
+                GlassButton(if (resolving) tr("جارٍ الإرسال…", "Sending…") else tr("أنا بخير الآن", "I'm fine now"), icon = Icons.Filled.Check, enabled = !resolving) {
                     resolving = true
                     AppModel.resolveMyHelp { message ->
                         resolving = false
@@ -298,7 +299,7 @@ fun HelpScreen(onClose: () -> Unit) {
                     }
                 }
             } else if (phase == Phase.SENT || phase == Phase.FAILED) {
-                GlassButton("إغلاق", color = Brand.text, onClick = onClose)
+                GlassButton(tr("إغلاق", "Close"), color = Brand.text, onClick = onClose)
             }
         }
     }
@@ -366,32 +367,32 @@ fun FamilyHelpCard(help: HelpRequest) {
             Icon(Icons.Filled.Sos, null, tint = Red, modifier = Modifier.size(32.dp))
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text("${help.patientName} ${Gender.pick(help.patientGender, "يحتاج", "تحتاج")} مساعدة", style = tajawal(22, FontWeight.Bold))
+                Text(tr("${help.patientName} ${Gender.pick(help.patientGender, "يحتاج", "تحتاج")} مساعدة", "${help.patientName} needs help"), style = tajawal(22, FontWeight.Bold))
                 Text(Format.relative(help.createdAt), style = tajawal(15, color = Brand.secondaryText))
             }
         }
         help.message?.let { Text("«$it»", style = tajawal(18)) }
         if (answered) {
             val me = help.acknowledgedBy != null && help.acknowledgedBy == AppModel.patient?.id
-            val toThem = Gender.pick(help.patientGender, "إليه", "إليها")
+            val toThem = Gender.pick(help.patientGender, tr("إليه", "them"), tr("إليها", "them"))
             Text(
-                if (me) "أنت في طريقك $toThem"
-                else "${help.acknowledgedByName ?: "أحد أفراد العائلة"} ${Gender.pick(help.acknowledgedByGender, "في طريقه", "في طريقها")} $toThem",
+                if (me) tr("أنت في طريقك $toThem", "You're on your way")
+                else tr("${help.acknowledgedByName ?: "أحد أفراد العائلة"} ${Gender.pick(help.acknowledgedByGender, "في طريقه", "في طريقها")} $toThem", "${help.acknowledgedByName ?: "A family member"} is on the way"),
                 style = tajawal(17, FontWeight.Medium, Brand.glow),
             )
         }
         help.mapUrl?.let { url ->
             GlassButton(
-                Gender.pick(help.patientGender, "موقعه على خرائط Google", "موقعها على خرائط Google") +
-                    (help.accuracy?.let { " · بدقة ${it.toInt().coerceAtLeast(1)} م تقريبًا" } ?: ""),
+                Gender.pick(help.patientGender, tr("موقعه على خرائط Google", "Their location on Google Maps"), tr("موقعها على خرائط Google", "Their location on Google Maps")) +
+                    (help.accuracy?.let { tr(" · بدقة ${it.toInt().coerceAtLeast(1)} م تقريبًا", " · accurate to about ${it.toInt().coerceAtLeast(1)} m") } ?: ""),
                 icon = Icons.Filled.Map,
             ) { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             help.patientPhone?.takeIf { it.isNotBlank() }?.let { phone ->
-                Box(Modifier.weight(1f)) { CallButton("اتصال", Icons.Filled.Call, Brand.mint) { dial(context, phone) } }
+                Box(Modifier.weight(1f)) { CallButton(tr("اتصال", "Call"), Icons.Filled.Call, Brand.mint) { dial(context, phone) } }
             }
-            if (!answered) Box(Modifier.weight(1f)) { CallButton("أنا قادم", Icons.Filled.DirectionsRun, Red) { AppModel.acknowledgeHelp(help) } }
+            if (!answered) Box(Modifier.weight(1f)) { CallButton(tr("أنا قادم", "I'm coming"), Icons.Filled.DirectionsRun, Red) { AppModel.acknowledgeHelp(help) } }
         }
     }
 }

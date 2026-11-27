@@ -13,8 +13,8 @@ export const g = (gender: Gender, male: string, female: string) => (gender === '
 /** Most users are in Saudi Arabia; used until the phone reports its zone. */
 export const DEFAULT_ZONE = 'Asia/Riyadh';
 
-/** "2:15 م" in the given IANA zone (Latin digits, like the app). */
-export function clock(iso: string, zone: string | null) {
+/** "2:15 م" (or "2:15 PM" in English) in the given IANA zone, Latin digits like the app. */
+export function clock(iso: string, zone: string | null, language: 'ar' | 'en' = 'ar') {
   const date = new Date(iso);
   const parts = (timeZone: string) =>
     new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date);
@@ -27,6 +27,7 @@ export function clock(iso: string, zone: string | null) {
   const hour = Number(list.find((p) => p.type === 'hour')?.value ?? 0) % 24;
   const minute = list.find((p) => p.type === 'minute')?.value ?? '00';
   const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  if (language === 'en') return `${h12}:${minute} ${hour < 12 ? 'AM' : 'PM'}`;
   return `${h12}:${minute} ${hour < 12 ? 'ص' : 'م'}`;
 }
 

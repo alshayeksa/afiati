@@ -1,5 +1,6 @@
 package com.alshayeksa.afiati.ui
 
+import com.alshayeksa.afiati.tr
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -116,14 +117,14 @@ fun readingTime(iso: String): String {
     val instant = runCatching { Iso.parse(iso) }.getOrNull() ?: return ""
     val date = instant.atZone(ZoneId.systemDefault()).toLocalDate()
     val day = when (date) {
-        LocalDate.now() -> "اليوم"
-        LocalDate.now().minusDays(1) -> "أمس"
+        LocalDate.now() -> tr("اليوم", "Today")
+        LocalDate.now().minusDays(1) -> tr("أمس", "Yesterday")
         else -> Format.gregorianDay(date)
     }
     return "$day · ${Format.time(instant)}"
 }
 
-private fun bpmWords(bpm: Int) = "$bpm نبضة في الدقيقة"
+private fun bpmWords(bpm: Int) = tr("$bpm نبضة في الدقيقة", "$bpm beats per minute")
 
 private enum class Stage { INTRO, MEASURING, RESULT, FAILED }
 
@@ -218,13 +219,13 @@ fun PulseScreen(onClose: () -> Unit) {
 
     fun fail(f: Failure) { failure = f; stage = Stage.FAILED }
     fun begin() {
-        if (tooHot(context)) fail(Failure("الجوال ساخن الآن", "انتظر بضع دقائق حتى يبرد، ثم أعد القياس."))
+        if (tooHot(context)) fail(Failure(tr("الجوال ساخن الآن", "Your phone is hot right now"), tr("انتظر بضع دقائق حتى يبرد، ثم أعد القياس.", "Wait a few minutes for it to cool down, then measure again.")))
         else stage = Stage.MEASURING
     }
 
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) begin()
-        else fail(Failure("نحتاج إذن الكاميرا", "القياس يستخدم الكاميرا الخلفية والفلاش فقط، ولا تُحفظ أي صورة. اسمح بالكاميرا من إعدادات الجوال.", openSettings = true))
+        else fail(Failure(tr("نحتاج إذن الكاميرا", "Camera permission needed"), tr("القياس يستخدم الكاميرا الخلفية والفلاش فقط، ولا تُحفظ أي صورة. اسمح بالكاميرا من إعدادات الجوال.", "The measurement uses only the back camera and flash, and no photo is saved. Allow the camera in your phone settings."), openSettings = true))
     }
     val start = {
         if (context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) begin()
@@ -234,9 +235,9 @@ fun PulseScreen(onClose: () -> Unit) {
     FullScreen {
         val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         Row(Modifier.fillMaxWidth().padding(top = top + 10.dp).padding(start = 20.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("قياس النبض", style = tajawal(26, FontWeight.Bold), modifier = Modifier.weight(1f))
+            Text(tr("قياس النبض", "Heart rate"), style = tajawal(26, FontWeight.Bold), modifier = Modifier.weight(1f))
             Text(
-                "إغلاق", style = tajawal(18, FontWeight.Medium, Brand.glow),
+                tr("إغلاق", "Close"), style = tajawal(18, FontWeight.Medium, Brand.glow),
                 modifier = Modifier.clip(CircleShape).clickable(role = Role.Button, onClick = onClose).padding(horizontal = 12.dp, vertical = 8.dp),
             )
         }
@@ -250,7 +251,7 @@ fun PulseScreen(onClose: () -> Unit) {
                     onDone = { estimate, wave ->
                         vibrate(context)
                         if (estimate == null) {
-                            fail(Failure("لم تتضح إشارة النبض", "لن نعرض رقمًا غير دقيق. جرّب مرة أخرى بهذه الطريقة:", showTips = true))
+                            fail(Failure(tr("لم تتضح إشارة النبض", "The pulse signal wasn't clear"), tr("لن نعرض رقمًا غير دقيق. جرّب مرة أخرى بهذه الطريقة:", "We won't show an inaccurate number. Try again like this:"), showTips = true))
                         } else {
                             result = estimate; resultWave = wave; stage = Stage.RESULT
                         }
@@ -267,8 +268,8 @@ fun PulseScreen(onClose: () -> Unit) {
                                 saving = true
                                 scope.launch {
                                     runCatching { withContext(Dispatchers.IO) { HeartRateRepository.save(patientId, estimate.bpm, estimate.quality) } }
-                                        .onSuccess { PulseStore.version++; AppModel.toast = "حُفظ القياس"; stage = Stage.INTRO }
-                                        .onFailure { AppModel.toast = "تعذّر حفظ القياس" }
+                                        .onSuccess { PulseStore.version++; AppModel.toast = tr("حُفظ القياس", "Measurement saved"); stage = Stage.INTRO }
+                                        .onFailure { AppModel.toast = tr("تعذّر حفظ القياس", "Couldn't save the measurement") }
                                     saving = false
                                 }
                             }
@@ -298,15 +299,15 @@ private fun Card(content: @Composable ColumnScope.() -> Unit) {
 private fun Intro(onStart: () -> Unit) {
     Card {
         FingerIllustration(Modifier.size(170.dp))
-        Text("ضع إصبعك على الكاميرا", style = tajawal(26, FontWeight.Bold), textAlign = TextAlign.Center)
-        Text("برفق، وأبقِ يدك ثابتة", style = tajawal(18, color = Brand.secondaryText), textAlign = TextAlign.Center)
+        Text(tr("ضع إصبعك على الكاميرا", "Place your finger on the camera"), style = tajawal(26, FontWeight.Bold), textAlign = TextAlign.Center)
+        Text(tr("برفق، وأبقِ يدك ثابتة", "Gently, and keep your hand still"), style = tajawal(18, color = Brand.secondaryText), textAlign = TextAlign.Center)
         Spacer(Modifier.height(4.dp))
-        PrimaryButton("ابدأ القياس", icon = Icons.Filled.Favorite, onClick = onStart)
+        PrimaryButton(tr("ابدأ القياس", "Start measuring"), icon = Icons.Filled.Favorite, onClick = onStart)
     }
     Tips()
     History()
     Text(
-        "قراءة تقديرية وليست تشخيصًا طبيًا. يتم القياس داخل جوالك، ولا تُحفظ ولا تُرسل أي صورة.",
+        tr("قراءة تقديرية وليست تشخيصًا طبيًا. يتم القياس داخل جوالك، ولا تُحفظ ولا تُرسل أي صورة.", "An estimate, not a medical diagnosis. It's measured on your phone; no photo is saved or sent."),
         style = tajawal(14, color = Brand.secondaryText), textAlign = TextAlign.Center,
     )
 }
@@ -314,11 +315,11 @@ private fun Intro(onStart: () -> Unit) {
 @Composable
 private fun Tips() {
     Card {
-        Text("لقياس أدق", style = tajawal(19, FontWeight.Bold), modifier = Modifier.fillMaxWidth())
+        Text(tr("لقياس أدق", "For a more accurate reading"), style = tajawal(19, FontWeight.Bold), modifier = Modifier.fillMaxWidth())
         listOf(
-            "اجلس وارتح دقيقة قبل القياس.",
-            "غطِّ الكاميرا الخلفية والفلاش معًا بطرف إصبعك.",
-            "لا تضغط بقوة، ولا تحرك يدك أو تتكلم حتى ينتهي.",
+            tr("اجلس وارتح دقيقة قبل القياس.", "Sit and rest for a minute first."),
+            tr("غطِّ الكاميرا الخلفية والفلاش معًا بطرف إصبعك.", "Cover both the back camera and the flash with your fingertip."),
+            tr("لا تضغط بقوة، ولا تحرك يدك أو تتكلم حتى ينتهي.", "Don't press hard, and don't move or talk until it finishes."),
         ).forEach { tip ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 Box(Modifier.padding(top = 10.dp).size(7.dp).clip(CircleShape).background(Brand.glow))
@@ -337,12 +338,12 @@ private fun History() {
     }
     if (readings.isEmpty()) return
     Card {
-        Text("قياساتك السابقة", style = tajawal(19, FontWeight.Bold), modifier = Modifier.fillMaxWidth())
+        Text(tr("قياساتك السابقة", "Your previous readings"), style = tajawal(19, FontWeight.Bold), modifier = Modifier.fillMaxWidth())
         readings.forEach { reading ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("${reading.bpm}", style = tajawal(26, FontWeight.Bold, Brand.glow))
                 Spacer(Modifier.width(8.dp))
-                Text("نبضة", style = tajawal(16, color = Brand.secondaryText))
+                Text(tr("نبضة", "bpm"), style = tajawal(16, color = Brand.secondaryText))
                 Spacer(Modifier.weight(1f))
                 Text(readingTime(reading.measuredAt), style = tajawal(15, color = Brand.secondaryText))
             }
@@ -373,7 +374,7 @@ private fun Measuring(onDone: (PulseEstimate?, List<Float>) -> Unit, onFail: (Fa
                         is PulseSession.Outcome.Done -> { finished = true; camera.stop(); onDone(outcome.estimate, outcome.wave) }
                         PulseSession.Outcome.GaveUp -> {
                             finished = true; camera.stop()
-                            onFail(Failure("لم نستطع إكمال القياس", "لم يبقَ الإصبع على الكاميرا مدة كافية. جرّب مرة أخرى:", showTips = true))
+                            onFail(Failure(tr("لم نستطع إكمال القياس", "Couldn't finish the measurement"), tr("لم يبقَ الإصبع على الكاميرا مدة كافية. جرّب مرة أخرى:", "Your finger didn't stay on the camera long enough. Try again:"), showTips = true))
                         }
                         null -> Unit
                     }
@@ -382,10 +383,10 @@ private fun Measuring(onDone: (PulseEstimate?, List<Float>) -> Unit, onFail: (Fa
             onReady = { hasFlash ->
                 if (!hasFlash && !finished) {
                     finished = true; camera.stop()
-                    onFail(Failure("جوالك بلا فلاش خلفي", "القياس يحتاج ضوء الفلاش ليمر خلال الإصبع، لذلك لا يعمل على هذا الجوال."))
+                    onFail(Failure(tr("جوالك بلا فلاش خلفي", "Your phone has no rear flash"), tr("القياس يحتاج ضوء الفلاش ليمر خلال الإصبع، لذلك لا يعمل على هذا الجوال.", "The measurement needs the flash light to shine through your finger, so it doesn't work on this phone.")))
                 }
             },
-            onError = { message -> if (!finished) { finished = true; onFail(Failure("تعذّر تشغيل الكاميرا", message)) } },
+            onError = { message -> if (!finished) { finished = true; onFail(Failure(tr("تعذّر تشغيل الكاميرا", "Couldn't start the camera"), message)) } },
         )
         camera.start()
         // الخروج من التطبيق أو سخونة الجوال: يتوقف القياس ويُطفأ الفلاش
@@ -393,7 +394,7 @@ private fun Measuring(onDone: (PulseEstimate?, List<Float>) -> Unit, onFail: (Fa
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP && !finished) {
                 finished = true; camera.stop()
-                onFail(Failure("توقف القياس", "خرجت من التطبيق أثناء القياس، فأطفأنا الفلاش. ابدأ من جديد."))
+                onFail(Failure(tr("توقف القياس", "Measurement stopped"), tr("خرجت من التطبيق أثناء القياس، فأطفأنا الفلاش. ابدأ من جديد.", "You left the app during the measurement, so we turned off the flash. Start again.")))
             }
         }
         lifecycle?.addObserver(observer)
@@ -401,7 +402,7 @@ private fun Measuring(onDone: (PulseEstimate?, List<Float>) -> Unit, onFail: (Fa
         val thermal = if (Build.VERSION.SDK_INT >= 29) PowerManager.OnThermalStatusChangedListener { status ->
             if (status >= PowerManager.THERMAL_STATUS_SEVERE && !finished) {
                 finished = true; camera.stop()
-                onFail(Failure("توقف القياس لأن الجوال ساخن", "أطفأنا الفلاش. انتظر بضع دقائق حتى يبرد، ثم أعد القياس."))
+                onFail(Failure(tr("توقف القياس لأن الجوال ساخن", "Stopped because the phone is hot"), tr("أطفأنا الفلاش. انتظر بضع دقائق حتى يبرد، ثم أعد القياس.", "We turned off the flash. Wait a few minutes for it to cool down, then measure again.")))
             }
         } else null
         if (Build.VERSION.SDK_INT >= 29 && thermal != null) power?.addThermalStatusListener(context.mainExecutor, thermal)
@@ -416,19 +417,19 @@ private fun Measuring(onDone: (PulseEstimate?, List<Float>) -> Unit, onFail: (Fa
     Card {
         ProgressHeart(session.progress, session.fingerOn)
         if (!session.fingerOn) {
-            Text("ضع إصبعك على الكاميرا", style = tajawal(24, FontWeight.Bold), textAlign = TextAlign.Center)
-            Text("غطِّ الكاميرا الخلفية والفلاش برفق بطرف إصبعك", style = tajawal(17, color = Brand.warning), textAlign = TextAlign.Center)
+            Text(tr("ضع إصبعك على الكاميرا", "Place your finger on the camera"), style = tajawal(24, FontWeight.Bold), textAlign = TextAlign.Center)
+            Text(tr("غطِّ الكاميرا الخلفية والفلاش برفق بطرف إصبعك", "Gently cover the back camera and flash with your fingertip"), style = tajawal(17, color = Brand.warning), textAlign = TextAlign.Center)
         } else {
-            Text(if (session.progress > 0f) "باقي $remaining ثانية" else "جارٍ ضبط الإشارة…", style = tajawal(24, FontWeight.Bold), textAlign = TextAlign.Center)
-            Text("ممتاز، أبقِ إصبعك ثابتًا ولا تتكلم", style = tajawal(17, color = Brand.mint), textAlign = TextAlign.Center)
+            Text(if (session.progress > 0f) tr("باقي $remaining ثانية", "$remaining seconds left") else tr("جارٍ ضبط الإشارة…", "Adjusting the signal…"), style = tajawal(24, FontWeight.Bold), textAlign = TextAlign.Center)
+            Text(tr("ممتاز، أبقِ إصبعك ثابتًا ولا تتكلم", "Great, keep your finger still and don't talk"), style = tajawal(17, color = Brand.mint), textAlign = TextAlign.Center)
         }
         Wave(session.wave, Modifier.fillMaxWidth().height(110.dp))
         Text(
-            session.live?.let { "تقريبًا $it نبضة في الدقيقة" } ?: " ",
+            session.live?.let { tr("تقريبًا $it نبضة في الدقيقة", "About $it beats per minute") } ?: " ",
             style = tajawal(17, color = Brand.secondaryText), textAlign = TextAlign.Center,
         )
     }
-    GlassButton("إيقاف القياس", icon = Icons.Filled.Stop, color = Brand.text) {
+    GlassButton(tr("إيقاف القياس", "Stop measuring"), icon = Icons.Filled.Stop, color = Brand.text) {
         finished = true
         onStop()
     }
@@ -473,20 +474,20 @@ private fun Wave(points: List<Float>, modifier: Modifier) {
 private fun Result(estimate: PulseEstimate, wave: List<Float>, saving: Boolean, onSave: () -> Unit, onAgain: () -> Unit) {
     Card {
         Icon(Icons.Filled.MonitorHeart, null, tint = Brand.glow, modifier = Modifier.size(44.dp))
-        Text("نبض القلب", style = tajawal(19, color = Brand.secondaryText))
+        Text(tr("نبض القلب", "Heart rate"), style = tajawal(19, color = Brand.secondaryText))
         Text("${estimate.bpm}", style = tajawal(84, FontWeight.Bold))
-        Text("نبضة في الدقيقة", style = tajawal(19, color = Brand.secondaryText))
+        Text(tr("نبضة في الدقيقة", "beats per minute"), style = tajawal(19, color = Brand.secondaryText))
         Wave(wave, Modifier.fillMaxWidth().height(110.dp))
         if (estimate.bpm !in RESTING_RANGE) {
             Text(
-                "القراءة خارج المعتاد أثناء الراحة. اجلس خمس دقائق ثم أعد القياس، وإن تكررت أو شعرت بتعب أو دوخة فاستشر طبيبك.",
+                tr("القراءة خارج المعتاد أثناء الراحة. اجلس خمس دقائق ثم أعد القياس، وإن تكررت أو شعرت بتعب أو دوخة فاستشر طبيبك.", "This reading is outside the usual resting range. Sit for five minutes and measure again; if it repeats or you feel tired or dizzy, consult your doctor."),
                 style = tajawal(16, color = Brand.warning), textAlign = TextAlign.Center,
             )
         }
         Spacer(Modifier.height(2.dp))
-        PrimaryButton(if (saving) "جارٍ الحفظ…" else "حفظ القياس", icon = Icons.Filled.Save, enabled = !saving, onClick = onSave)
-        GlassButton("قِس مرة أخرى", icon = Icons.Filled.Refresh, onClick = onAgain)
-        Text("قراءة تقديرية وليست تشخيصًا طبيًا", style = tajawal(14, color = Brand.secondaryText), textAlign = TextAlign.Center)
+        PrimaryButton(if (saving) tr("جارٍ الحفظ…", "Saving…") else tr("حفظ القياس", "Save measurement"), icon = Icons.Filled.Save, enabled = !saving, onClick = onSave)
+        GlassButton(tr("قِس مرة أخرى", "Measure again"), icon = Icons.Filled.Refresh, onClick = onAgain)
+        Text(tr("قراءة تقديرية وليست تشخيصًا طبيًا", "An estimate, not a medical diagnosis"), style = tajawal(14, color = Brand.secondaryText), textAlign = TextAlign.Center)
     }
 }
 
@@ -497,8 +498,8 @@ private fun FailureView(failure: Failure, onAgain: () -> Unit, onSettings: () ->
         Text(failure.title, style = tajawal(24, FontWeight.Bold), textAlign = TextAlign.Center)
         Text(failure.body, style = tajawal(17, color = Brand.secondaryText), textAlign = TextAlign.Center)
         Spacer(Modifier.height(2.dp))
-        if (failure.openSettings) PrimaryButton("فتح الإعدادات", onClick = onSettings)
-        else PrimaryButton("أعد القياس", icon = Icons.Filled.Refresh, onClick = onAgain)
+        if (failure.openSettings) PrimaryButton(tr("فتح الإعدادات", "Open settings"), onClick = onSettings)
+        else PrimaryButton(tr("أعد القياس", "Measure again"), icon = Icons.Filled.Refresh, onClick = onAgain)
     }
     if (failure.showTips) Tips()
 }

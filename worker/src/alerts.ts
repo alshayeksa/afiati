@@ -46,12 +46,19 @@ export function dosesPhrase(count: number) {
 }
 
 export function missedMessage(name: string, medicines: string[], doses: number, privacy: Follower['privacy_level'], phoneOffline: boolean) {
-  const what = privacy === 'full' && medicines.length ? `${[...new Set(medicines)].join('، ')}: ` : '';
-  const offline = phoneOffline ? ' الجوّال غير متصل بالإنترنت منذ موعدها، فربما أُخذت ولم يصلنا التسجيل.' : '';
+  const names = [...new Set(medicines)];
+  const show = privacy === 'full' && names.length > 0;
+  const whatAr = show ? `${names.join('، ')}: ` : '';
+  const whatEn = show ? `${names.join(', ')}: ` : '';
+  const offlineAr = phoneOffline ? ' الجوّال غير متصل بالإنترنت منذ موعدها، فربما أُخذت ولم يصلنا التسجيل.' : '';
+  const offlineEn = phoneOffline ? ' Their phone has been offline since then, so it may have been taken without syncing.' : '';
   return {
     type: 'missed_dose',
-    title: `فاتت ${name} ${dosesPhrase(doses)}`,
-    body: `${what}مضت ساعة على الموعد ولم تُسجَّل.${offline} اضغط للتفاصيل وإرسال تذكير.`,
+    title: { ar: `فاتت ${name} ${dosesPhrase(doses)}`, en: `${name} missed ${doses === 1 ? 'a dose' : `${doses} doses`}` },
+    body: {
+      ar: `${whatAr}مضت ساعة على الموعد ولم تُسجَّل.${offlineAr} اضغط للتفاصيل وإرسال تذكير.`,
+      en: `${whatEn}It's been an hour since the scheduled time and it wasn't logged.${offlineEn} Tap for details and to send a reminder.`,
+    },
   };
 }
 
@@ -114,8 +121,16 @@ export function localHour(zone: string | null, now = Date.now()) {
 
 export function stockMessage(name: string, medicine: string, count: number) {
   return count <= 0
-    ? { type: 'low_stock', title: `نفد ${medicine} عند ${name}`, body: 'انتهت الكمية المسجلة. يحتاج علبة جديدة.' }
-    : { type: 'low_stock', title: `${medicine} عند ${name} قارب على النفاد`, body: `الكمية الباقية: ${count}. يحتاج علبة جديدة قريبًا.` };
+    ? {
+        type: 'low_stock',
+        title: { ar: `نفد ${medicine} عند ${name}`, en: `${name} has run out of ${medicine}` },
+        body: { ar: 'انتهت الكمية المسجلة. يحتاج علبة جديدة.', en: 'No stock left. A new box is needed.' },
+      }
+    : {
+        type: 'low_stock',
+        title: { ar: `${medicine} عند ${name} قارب على النفاد`, en: `${name}'s ${medicine} is running low` },
+        body: { ar: `الكمية الباقية: ${count}. يحتاج علبة جديدة قريبًا.`, en: `${count} left. A new box will be needed soon.` },
+      };
 }
 
 type LowStock = { id: string; patient_id: string; name: string; stock_count: number };

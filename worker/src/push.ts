@@ -4,15 +4,34 @@
 import { isFcmToken, sendFcm } from './fcm';
 import { nowIso } from './http';
 
+/** Text for a reader: one string, or Arabic and English (chosen by the reader's interface language). */
+export type Text = string | { ar: string; en: string };
+
 export type Notification = {
   type: string;
-  title: string;
-  body: string;
+  title: Text;
+  body: Text;
   data?: Record<string, unknown>;
   /** Android notification channel created by the app. */
   channelId?: string;
   priority?: 'default' | 'high';
 };
+
+export type Language = 'ar' | 'en';
+
+/** A notification with its text already in the reader's language */
+type Resolved = Omit<Notification, 'title' | 'body'> & { title: string; body: string };
+
+export const pick = (text: Text, language: Language) => (typeof text === 'string' ? text : text[language]);
+
+export async function languageOf(env: Env, userId: string): Promise<Language> {
+  const row = await env.DB.prepare(
+    'SELECT language FROM devices WHERE profile_id = ? AND revoked_at IS NULL AND language IS NOT NULL ORDER BY last_seen_at DESC LIMIT 1',
+  )
+    .bind(userId)
+    .first<{ language: string }>();
+  return row?.language === 'en' ? 'en' : 'ar';
+}
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -27,11 +46,14 @@ export type Waiter = (promise: Promise<unknown>) => void;
 export async function notifyUser(
   env: Env,
   userId: string,
-  notification: Notification,
+  message: Notification,
   waitUntil: Waiter,
   { log = true }: { log?: boolean } = {},
 ): Promise<void> {
-  const data = { ...notification.data, type: notification.type };
+  const data = { ...message.data, type: message.type };
+  // The reader's language: the interface language of their most recently seen phone (Arabic by default).
+  const language = await languageOf(env, userId);
+  const notification: Resolved = { ...message, title: pick(message.title, language), body: pick(message.body, language) };
   if (log) await env.DB.prepare(
     `INSERT INTO notifications_log (id, user_id, type, title, body, data_json, read, created_at)
      VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
@@ -50,7 +72,7 @@ export async function notifyUser(
   if (fcm.length) waitUntil(sendFcmPush(env, fcm, { ...notification, data }));
 }
 
-async function sendFcmPush(env: Env, devices: { id: string; push_token: string }[], notification: Notification) {
+async function sendFcmPush(env: Env, devices: { id: string; push_token: string }[], notification: Resolved) {
   // FCM data values must be strings.
   const data = Object.fromEntries(
     Object.entries(notification.data ?? {}).map(([key, value]) => [key, typeof value === 'string' ? value : JSON.stringify(value)]),
@@ -73,7 +95,7 @@ async function sendFcmPush(env: Env, devices: { id: string; push_token: string }
   }
 }
 
-async function sendExpoPush(env: Env, devices: { id: string; push_token: string }[], notification: Notification) {
+async function sendExpoPush(env: Env, devices: { id: string; push_token: string }[], notification: Resolved) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
   const accessToken = (env as Env & { EXPO_ACCESS_TOKEN?: string }).EXPO_ACCESS_TOKEN;
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;

@@ -1,5 +1,6 @@
 package com.alshayeksa.afiati.pulse
 
+import com.alshayeksa.afiati.tr
 import android.content.Context
 import android.util.Size
 import androidx.camera.core.Camera
@@ -63,7 +64,7 @@ class PulseCamera(
                 if (hasFlash) bound.cameraControl.enableTorch(true)
                 onReady(hasFlash)
             } catch (error: Exception) {
-                onError("تعذّر تشغيل الكاميرا. أغلق التطبيقات التي تستخدمها وحاول مرة أخرى.")
+                onError(tr("تعذّر تشغيل الكاميرا. أغلق التطبيقات التي تستخدمها وحاول مرة أخرى.", "Couldn't start the camera. Close apps that use it and try again."))
                 stop()
             }
         }, ContextCompat.getMainExecutor(context))
