@@ -69,6 +69,8 @@ import com.alshayeksa.afiati.R
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.abs
+import kotlin.math.exp
 
 /**
  * ألوان العلامة، بأسلوب «موجة»: خلفية شبه سوداء، أسطح زجاجية، ولون مضيء.
@@ -265,6 +267,83 @@ fun DrawScope.drawWave(phase: Float, waveColors: Array<Pair<Float, Color>>, stro
             x += step
         }
         drawPath(path, brush, alpha = alpha, style = Stroke(strokeWidth))
+    }
+}
+
+/**
+ * موجة النبض: خطوط رفيعة مضيئة تنساب كالموجة، ثم تجتمع في نبضتي قلب (تخطيط القلب).
+ * النبضة تخفق مرة كل ثانية، ونقطة ضوء تسري على الخط من اليمين إلى اليسار.
+ */
+@Composable
+fun PulseWave(modifier: Modifier = Modifier, animated: Boolean = true) {
+    val colors = waveColors(Palette(Appearance.accent, Appearance.light))
+    val dot = Brand.glow
+    var time by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(animated) {
+        if (!animated) return@LaunchedEffect
+        val offset = time
+        val start = withFrameNanos { it }
+        while (true) withFrameNanos { time = offset + (it - start) / 1e9f }
+    }
+    Box(modifier.clearAndSetSemantics {}) {
+        Canvas(Modifier.fillMaxSize().blur(8.dp, BlurredEdgeTreatment.Unbounded)) {
+            drawPulseWave(time, colors, strokeWidth = 2.2.dp.toPx(), alpha = 0.22f, lines = 7)
+        }
+        Canvas(Modifier.fillMaxSize()) {
+            drawPulseWave(time, colors, strokeWidth = 0.7.dp.toPx(), alpha = 0.7f, lines = 16)
+            // نقطة الضوء على الخط الأوسط
+            val t = 1f - ((time / 3.2f) % 1f)
+            val x = size.width * (1f - t)
+            val y = pulseCenter(t, time, size.height)
+            drawCircle(dot.copy(alpha = 0.18f), 14.dp.toPx(), Offset(x, y))
+            drawCircle(dot.copy(alpha = 0.45f), 7.dp.toPx(), Offset(x, y))
+            drawCircle(Color.White, 2.8.dp.toPx(), Offset(x, y))
+        }
+    }
+}
+
+/** موضعا النبضتين على عرض الموجة (0 يمين، 1 يسار) */
+private val BEATS = floatArrayOf(0.30f, 0.70f)
+
+private fun gauss(x: Float, sigma: Float) = exp(-(x * x) / (2 * sigma * sigma))
+
+/** شكل نبضة واحدة: P صغيرة، Q هبوط، R قمة حادة، S هبوط، T موجة هادئة */
+private fun beatShape(u: Float): Float =
+    0.10f * gauss(u + 0.55f, 0.09f) - 0.16f * gauss(u + 0.13f, 0.045f) + 1f * gauss(u, 0.05f) -
+        0.38f * gauss(u - 0.13f, 0.05f) + 0.20f * gauss(u - 0.52f, 0.12f)
+
+/** ارتفاع الخط الأوسط عند t: موجة هادئة + النبضتان */
+private fun pulseCenter(t: Float, time: Float, height: Float): Float {
+    // خفقة كل ثانية: القمة ترتفع ثم تهدأ
+    val beat = 0.82f + 0.18f * exp(-((time % 1f) * 5f))
+    var y = height * 0.58f + height * 0.11f * sin(t * 2 * PI.toFloat() * 1.3f + time * 0.5f)
+    for (center in BEATS) y -= height * 0.40f * beat * beatShape((t - center) / 0.16f)
+    return y
+}
+
+fun DrawScope.drawPulseWave(time: Float, waveColors: Array<Pair<Float, Color>>, strokeWidth: Float, alpha: Float, lines: Int) {
+    val width = size.width
+    val height = size.height
+    if (width <= 0f) return
+    val brush = Brush.horizontalGradient(*waveColors, startX = width, endX = 0f)
+    val step = 1.5.dp.toPx()
+    val path = Path()
+    for (index in 0 until lines) {
+        val k = index.toFloat() / (lines - 1) - 0.5f
+        path.rewind()
+        var x = 0f
+        var first = true
+        while (x <= width) {
+            val t = (width - x) / width
+            // الخطوط تتباعد كالموجة بعيدًا عن النبضة، وتجتمع عندها فتظهر حادة
+            val pinch = BEATS.maxOf { gauss(t - it, 0.06f) }
+            val spread = height * 0.34f * (1f - pinch) * (0.7f + 0.3f * sin(t * 7f + time * 0.7f))
+            val y = pulseCenter(t, time, height) + k * spread
+            if (first) path.moveTo(x, y) else path.lineTo(x, y)
+            first = false
+            x += step
+        }
+        drawPath(path, brush, alpha = alpha * (1f - abs(k) * 0.9f), style = Stroke(strokeWidth))
     }
 }
 

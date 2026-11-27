@@ -115,10 +115,12 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
 
     TabList(header) {
         item(key = "greeting") { Greeting() }
+        // موجة النبض: هوية عافيتي، مدمجة تحت التحية
+        item(key = "pulse-wave") { PulseWave(Modifier.fillMaxWidth().padding(top = 4.dp).height(92.dp)) }
         // المساعدة والنبض جنبًا إلى جنب: في متناول اليد دون أن يزاحما جرعات اليوم
         item(key = "actions") {
             Row(
-                Modifier.padding(horizontal = 14.dp).padding(top = 14.dp).fillMaxWidth().height(IntrinsicSize.Min),
+                Modifier.padding(horizontal = 14.dp).padding(top = 6.dp).fillMaxWidth().height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 HelpTile(Modifier.weight(1f).fillMaxHeight(), onHelp)
@@ -127,7 +129,6 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
         }
 
         if (medications.isEmpty() && logs.isEmpty()) {
-            item(key = "wave") { WaveRibbon(Modifier.fillMaxWidth().padding(top = 6.dp).height(110.dp)) }
             item(key = "empty") {
                 EmptyCard(
                     "أضف دواءك الأول",
