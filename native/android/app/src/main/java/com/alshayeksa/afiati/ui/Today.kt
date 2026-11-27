@@ -104,7 +104,7 @@ fun rememberNow(): Instant {
 }
 
 @Composable
-fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedication: (Medication) -> Unit, onHelp: () -> Unit) {
+fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedication: (Medication) -> Unit, onHelp: () -> Unit, onPulse: () -> Unit) {
     val now = rememberNow()
     val logs = AppModel.todayLogs
     val medications = AppModel.medications
@@ -114,6 +114,7 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
     TabList(header) {
         item(key = "greeting") { Greeting() }
         item(key = "help") { HelpButton(onHelp) }
+        item(key = "pulse") { PulseCard(onPulse) }
         item(key = "wave") { WaveRibbon(Modifier.fillMaxWidth().padding(top = 2.dp).height(120.dp)) }
 
         if (medications.isEmpty() && logs.isEmpty()) {

@@ -79,6 +79,10 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.13.0")
     // رمز QR لدعوة العائلة
     implementation("com.google.zxing:core:3.5.3")
+    // قياس النبض: الكاميرا الخلفية والفلاش، والتحليل على الجوال فقط
+    implementation("androidx.camera:camera-core:1.7.0")
+    implementation("androidx.camera:camera-camera2:1.7.0")
+    implementation("androidx.camera:camera-lifecycle:1.7.0")
     // إشعارات العائلة الفورية عبر Firebase Cloud Messaging (مجانية)
     implementation(platform("com.google.firebase:firebase-bom:35.2.0"))
     implementation("com.google.firebase:firebase-messaging")

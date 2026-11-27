@@ -78,16 +78,23 @@ class AfiatiDatabase(context: Context) : SQLiteOpenHelper(context, NAME, null, V
             "CREATE INDEX idx_medications_local_patient ON medications_local(patient_id, is_active, updated_at)",
             "CREATE INDEX idx_logs_local_patient_time ON medication_logs_local(patient_id, scheduled_at)",
             "CREATE INDEX idx_outbox_created ON outbox(created_at)",
+            HeartRateRepository.TABLE_SQL,
+            HeartRateRepository.INDEX_SQL,
         ).forEach(db::execSQL)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // الإصدار الأول. الترقيات القادمة تُضاف هنا خطوة خطوة دون حذف بيانات المستخدم.
+        // خطوة خطوة دون حذف بيانات المستخدم
+        if (oldVersion < 2) {
+            // 2: قياسات النبض بالكاميرا
+            db.execSQL(HeartRateRepository.TABLE_SQL)
+            db.execSQL(HeartRateRepository.INDEX_SQL)
+        }
     }
 
     companion object {
         const val NAME = "afiati.db"
-        const val VERSION = 1
+        const val VERSION = 2
     }
 }
 

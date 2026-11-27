@@ -107,6 +107,7 @@ fun HomeScreen() {
     var showNotifications by rememberSaveable { mutableStateOf(false) }
     var showAbout by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
+    var showPulse by rememberSaveable { mutableStateOf(false) }
     var openMedication by remember { mutableStateOf<Medication?>(null) }
     var openPatient by remember { mutableStateOf<FamilyLink?>(null) }
 
@@ -115,18 +116,18 @@ fun HomeScreen() {
     LaunchedEffect(pendingOpen) {
         when (pendingOpen) {
             "family" -> {
-                showAdd = false; openPatient = null; showProfile = false; showSettings = false; showNotifications = false; showAbout = false; openMedication = null
+                showAdd = false; showPulse = false; openPatient = null; showProfile = false; showSettings = false; showNotifications = false; showAbout = false; openMedication = null
                 tab = Tab.FAMILY
                 AppModel.familyFocus++
             }
             "help" -> {
-                showAdd = false; openPatient = null; showProfile = false; showSettings = false; showNotifications = false; showAbout = false; openMedication = null
+                showAdd = false; showPulse = false; openPatient = null; showProfile = false; showSettings = false; showNotifications = false; showAbout = false; openMedication = null
                 AppModel.refreshHelp()
                 // للكبير: حالة طلبه. لفرد العائلة: بطاقة الطلب أعلى الشاشة
                 if (AppModel.myHelp != null) showHelp = true else tab = Tab.TODAY
             }
             "notifications" -> {
-                showAdd = false; openPatient = null; showProfile = false; showSettings = false; showAbout = false; openMedication = null
+                showAdd = false; showPulse = false; openPatient = null; showProfile = false; showSettings = false; showAbout = false; openMedication = null
                 showNotifications = true
             }
             else -> if (pendingOpen?.startsWith(MainActivity.OPEN_PATIENT_PREFIX) == true) {
@@ -155,14 +156,14 @@ fun HomeScreen() {
             if (ticks % 2 == 0) AppModel.checkDay()
         }
     }
-    BackHandler(enabled = tab != Tab.TODAY && !showAdd && !showHelp && openPatient == null) { tab = Tab.TODAY }
+    BackHandler(enabled = tab != Tab.TODAY && !showAdd && !showHelp && !showPulse && openPatient == null) { tab = Tab.TODAY }
 
     val header: @Composable () -> Unit = {
         TopBar(onProfile = { showProfile = true }, onNotifications = { showNotifications = true }, onAbout = { showAbout = true }, onSettings = { showSettings = true })
     }
     Box(Modifier.fillMaxSize()) {
         when (tab) {
-            Tab.TODAY -> TodayScreen(header, onAdd = { showAdd = true }, onOpenMedication = { openMedication = it }, onHelp = { showHelp = true })
+            Tab.TODAY -> TodayScreen(header, onAdd = { showAdd = true }, onOpenMedication = { openMedication = it }, onHelp = { showHelp = true }, onPulse = { showPulse = true })
             Tab.MEDICATIONS -> MedicationsScreen(header, onAdd = { showAdd = true }, onOpen = { openMedication = it })
             Tab.HISTORY -> HistoryScreen(header)
             Tab.FAMILY -> FamilyScreen(header, onOpenPatient = { openPatient = it })
@@ -183,13 +184,16 @@ fun HomeScreen() {
         if (showAdd) {
             AddMedicationScreen(onClose = { showAdd = false })
         }
+        if (showPulse) {
+            PulseScreen(onClose = { showPulse = false })
+        }
         if (showHelp) {
             HelpScreen(onClose = { showHelp = false })
         }
         UndoBar(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 92.dp))
     }
 
-    if (!showAdd && !showHelp && openPatient == null) {
+    if (!showAdd && !showHelp && !showPulse && openPatient == null) {
         when {
             showProfile -> ProfileSheet(onDismiss = { showProfile = false })
             showSettings -> SettingsSheet(onDismiss = { showSettings = false })

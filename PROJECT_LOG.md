@@ -255,3 +255,22 @@ Manual entry is currently faster and more reliable for the target flow.
 - Local end-to-end with the mock Google server: 30/30 passed (grouping, privacy, once only, late take, offline remark, no family, stopped medicine, stock once and again after refill, night hold and morning send, invalid zone). Help regression 32/32.
 - Production sync 20/20 and family 26/26 after deploying. The Samsung reports Asia/Riyadh to the server.
 - Not yet seen on a real phone as a relative: the owner's real profile is on the Samsung, so no test family was linked to it.
+
+## 2026-11-27 - Heart rate with the camera (قياس النبض)
+
+### Change
+- Android only, fully on the phone: no image is stored or sent, and readings stay in local SQLite (`heart_rate_local`, database version 2 with an upgrade step).
+- PPG: the back camera (CameraX 1.7.0, 320x240 YUV) with the torch on. Each frame is reduced to the mean luma and chroma of the central half.
+- Finger detection by strong red chroma. Measurement starts only after the finger is on, ignores the first 3 seconds while exposure settles, and restarts if the finger is lifted for more than 0.7 seconds.
+- `pulse/PulseMath.kt`: resample to 30 Hz, two-way Butterworth band-pass 0.7–3.5 Hz, autocorrelation and sub-frame peak timing. A number is shown only when the two methods agree within 10%, autocorrelation clarity is at least 0.45, and 70% of beat intervals are steady. Otherwise the app asks to measure again and never guesses.
+- 30 seconds of measuring. A provisional number appears after 10 seconds only if it passes the same checks.
+- The torch turns off when measuring finishes, is stopped, the app goes to the background, the phone gets hot (thermal status severe), or after 90 seconds without a complete reading. The screen stays on while measuring.
+- UI: a «قياس النبض» card on Today with the last reading, plus an intro with drawing and tips, a live progress ring and wave, the result with save and «measure again», and the last 5 readings. A gentle note appears outside 50–110 at rest, and «قراءة تقديرية وليست تشخيصًا طبيًا» is always shown.
+
+### Verification
+- Unit tests: 7 rates from 48 to 160 bpm with noise, lighting drift, uneven frame rate and a dicrotic wave, all within 2 bpm. Twenty pure-noise signals and a flat signal gave no number.
+- Samsung SM-A566B: camera permission, torch on, live wave with clear beats and dicrotic notch, result 70 bpm saved. The camera was closed afterwards. The upgrade from database version 1 kept the owner's data.
+
+### Not done
+- Health Connect (Android) and HealthKit (iOS) export.
+- Accuracy against a reference device on elderly users.
