@@ -51,6 +51,8 @@ object SyncEngine {
         return try {
             ensureIdentity(patient)
             pushProfile()
+            // رمز الإشعارات لا يوقف المزامنة إن تعذّر، ويُعاد في المرة القادمة
+            runCatching { Push.register(context) }
             val pushed = pushOutbox()
             val pulled = pull()
             SyncState.set(SyncState.LAST_SUCCESS, Iso.now())

@@ -79,6 +79,17 @@ object AppModel {
     /** يزيد كلما عاد التطبيق للواجهة، لإعادة قراءة الأذونات */
     var resumeTick by mutableStateOf(0); private set
 
+    /** فتح شاشة بعينها من إشعار: "family" أو "notifications" */
+    var pendingOpen by mutableStateOf<String?>(null)
+
+    fun refreshNotificationsIfRunning() {
+        if (::app.isInitialized && running && patient != null) refreshNotifications(quiet = true)
+    }
+
+    fun refreshFamilyIfRunning() {
+        if (::app.isInitialized && running && patient != null) refreshFamily()
+    }
+
     /** رسالة قصيرة تظهر أسفل الشاشة */
     var toast by mutableStateOf<String?>(null)
 

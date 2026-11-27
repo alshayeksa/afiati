@@ -5,6 +5,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// إعداد Firebase (إشعارات العائلة): الملف خارج git. بدونه يُبنى التطبيق ويعمل، لكن بلا إشعارات فورية من العائلة.
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
+
 // توقيع نسخة النشر: من متغيرات البيئة في GitHub، أو من keystore.properties محليًا. الملف والمفتاح خارج git.
 val keystoreProperties = Properties().apply {
     val file = rootProject.file("keystore.properties")
@@ -76,4 +79,9 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.13.0")
     // رمز QR لدعوة العائلة
     implementation("com.google.zxing:core:3.5.3")
+    // إشعارات العائلة الفورية عبر Firebase Cloud Messaging (مجانية)
+    implementation(platform("com.google.firebase:firebase-bom:35.2.0"))
+    implementation("com.google.firebase:firebase-messaging")
+    // مكتبات Google تجلب نسخة قديمة من Fragment لا تتوافق مع طلب الأذونات الحديث
+    implementation("androidx.fragment:fragment:1.9.1")
 }

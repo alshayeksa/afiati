@@ -1,5 +1,7 @@
 // Notifications: every message is stored in notifications_log (shown in the app's
-// notifications screen) and pushed through the Expo Push service to the user's devices.
+// notifications screen) and pushed to the user's devices: Firebase (FCM) for the native
+// Android app, and the Expo Push service for the older Expo app.
+import { isFcmToken, sendFcm } from './fcm';
 import { nowIso } from './http';
 
 export type Notification = {
@@ -36,7 +38,33 @@ export async function notifyUser(env: Env, userId: string, notification: Notific
   )
     .bind(userId)
     .all<{ id: string; push_token: string }>();
-  if (devices.length) waitUntil(sendExpoPush(env, devices, { ...notification, data }));
+  const fcm = devices.filter((device) => isFcmToken(device.push_token));
+  const expo = devices.filter((device) => !isFcmToken(device.push_token));
+  if (expo.length) waitUntil(sendExpoPush(env, expo, { ...notification, data }));
+  if (fcm.length) waitUntil(sendFcmPush(env, fcm, { ...notification, data }));
+}
+
+async function sendFcmPush(env: Env, devices: { id: string; push_token: string }[], notification: Notification) {
+  // FCM data values must be strings.
+  const data = Object.fromEntries(
+    Object.entries(notification.data ?? {}).map(([key, value]) => [key, typeof value === 'string' ? value : JSON.stringify(value)]),
+  );
+  const results = await Promise.all(
+    devices.map((device) =>
+      sendFcm(env, device.push_token, {
+        title: notification.title,
+        body: notification.body,
+        data,
+        channelId: notification.channelId ?? 'family',
+        urgent: notification.priority === 'high',
+      }),
+    ),
+  );
+  // Forget tokens of uninstalled apps.
+  const stale = devices.filter((_, index) => results[index] === 'gone').map((device) => device.id);
+  if (stale.length) {
+    await env.DB.batch(stale.map((id) => env.DB.prepare('UPDATE devices SET push_token = NULL WHERE id = ?').bind(id)));
+  }
 }
 
 async function sendExpoPush(env: Env, devices: { id: string; push_token: string }[], notification: Notification) {

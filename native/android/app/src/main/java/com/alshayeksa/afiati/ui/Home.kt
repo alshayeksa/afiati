@@ -101,6 +101,15 @@ fun HomeScreen() {
     var openMedication by remember { mutableStateOf<Medication?>(null) }
     var openPatient by remember { mutableStateOf<FamilyLink?>(null) }
 
+    // ضغطة على إشعار من العائلة
+    val pendingOpen = AppModel.pendingOpen
+    LaunchedEffect(pendingOpen) {
+        when (pendingOpen) {
+            "family" -> { showAdd = false; openPatient = null; tab = Tab.FAMILY }
+            "notifications" -> { showAdd = false; openPatient = null; showNotifications = true }
+        }
+        AppModel.pendingOpen = null
+    }
     // منتصف الليل والتطبيق مفتوح
     LaunchedEffect(Unit) {
         while (true) {

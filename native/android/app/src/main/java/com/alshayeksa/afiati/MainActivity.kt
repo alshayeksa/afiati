@@ -2,6 +2,7 @@ package com.alshayeksa.afiati
 
 import android.Manifest
 import android.app.Application
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
@@ -40,6 +41,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(SystemBarStyle.dark(Color.TRANSPARENT), SystemBarStyle.dark(Color.TRANSPARENT))
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) handle(intent)
         setContent {
             // أيقونات شريط الحالة داكنة فوق المظهر الفاتح
             val light = Appearance.light
@@ -52,6 +54,25 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(hasPatient) { if (hasPatient) askNotificationsOnce() }
             AfiatiRoot()
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handle(intent)
+    }
+
+    /** ضغطة على إشعار عائلة: تفتح العائلة أو الإشعارات */
+    private fun handle(intent: Intent?) {
+        intent?.getStringExtra(EXTRA_OPEN)?.let {
+            AppModel.pendingOpen = it
+            intent.removeExtra(EXTRA_OPEN)
+        }
+    }
+
+    companion object {
+        const val EXTRA_OPEN = "open"
+        const val OPEN_FAMILY = "family"
+        const val OPEN_NOTIFICATIONS = "notifications"
     }
 
     override fun onResume() {

@@ -34,6 +34,7 @@ import java.time.Instant
  */
 object Reminders {
     const val CHANNEL = "medication-reminders"
+    const val FAMILY_CHANNEL = "family"
     private const val PREFS = "reminders"
     private const val KEY_CODES = "codes"
     const val SNOOZE_MINUTES = 10L
@@ -55,7 +56,11 @@ object Reminders {
                 AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build(),
             )
         }
-        context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
+        val family = NotificationChannel(FAMILY_CHANNEL, "تنبيهات العائلة", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "طلبات المتابعة والتذكيرات من أفراد العائلة"
+            enableVibration(true)
+        }
+        context.getSystemService(NotificationManager::class.java)?.createNotificationChannels(listOf(channel, family))
     }
 
     fun canScheduleExact(context: Context): Boolean =

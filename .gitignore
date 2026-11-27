@@ -44,3 +44,8 @@ yarn-error.*
 
 # local screenshots and UI dumps from device testing
 .tmp-*
+
+# Firebase secrets (service account key)
+push-notification/
+*firebase-adminsdk*.json
+google-services.json
