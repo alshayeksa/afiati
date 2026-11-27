@@ -1,0 +1,74 @@
+// Notifications: every message is stored in notifications_log (shown in the app's
+// notifications screen) and pushed through the Expo Push service to the user's devices.
+import { nowIso } from './http';
+
+export type Notification = {
+  type: string;
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+  /** Android notification channel created by the app. */
+  channelId?: string;
+  priority?: 'default' | 'high';
+};
+
+const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+
+type ExpoTicket = { status: 'ok' | 'error'; details?: { error?: string } };
+
+export type Waiter = (promise: Promise<unknown>) => void;
+
+/**
+ * Logs the notification now; the network push to Expo is handed to `waitUntil`
+ * (ctx.waitUntil) so the HTTP response is not held up by it.
+ */
+export async function notifyUser(env: Env, userId: string, notification: Notification, waitUntil: Waiter): Promise<void> {
+  const data = { ...notification.data, type: notification.type };
+  await env.DB.prepare(
+    `INSERT INTO notifications_log (id, user_id, type, title, body, data_json, read, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+  )
+    .bind(crypto.randomUUID(), userId, notification.type, notification.title, notification.body, JSON.stringify(data), nowIso())
+    .run();
+
+  const { results: devices } = await env.DB.prepare(
+    'SELECT id, push_token FROM devices WHERE profile_id = ? AND push_token IS NOT NULL AND revoked_at IS NULL',
+  )
+    .bind(userId)
+    .all<{ id: string; push_token: string }>();
+  if (devices.length) waitUntil(sendExpoPush(env, devices, { ...notification, data }));
+}
+
+async function sendExpoPush(env: Env, devices: { id: string; push_token: string }[], notification: Notification) {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
+  const accessToken = (env as Env & { EXPO_ACCESS_TOKEN?: string }).EXPO_ACCESS_TOKEN;
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+  const messages = devices.map((device) => ({
+    to: device.push_token,
+    title: notification.title,
+    body: notification.body,
+    data: notification.data,
+    sound: 'default',
+    priority: notification.priority ?? 'default',
+    channelId: notification.channelId,
+  }));
+
+  try {
+    const response = await fetch(EXPO_PUSH_URL, { method: 'POST', headers, body: JSON.stringify(messages) });
+    if (!response.ok) {
+      console.error('expo push failed', response.status, await response.text());
+      return;
+    }
+    const { data: tickets } = (await response.json()) as { data: ExpoTicket[] };
+    // Tickets come back in message order. Forget tokens of uninstalled apps.
+    const stale = tickets
+      .map((ticket, index) => (ticket.details?.error === 'DeviceNotRegistered' ? devices[index].id : null))
+      .filter((id): id is string => id !== null);
+    if (stale.length) {
+      await env.DB.batch(stale.map((id) => env.DB.prepare('UPDATE devices SET push_token = NULL WHERE id = ?').bind(id)));
+    }
+  } catch (error) {
+    console.error('expo push error', error);
+  }
+}

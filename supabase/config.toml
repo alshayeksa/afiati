@@ -1,0 +1,19 @@
+project_id = "lvwgmihyugxhoxtjptfa"
+
+[functions.generate-invite-code]
+verify_jwt = false
+
+[functions.join-family]
+verify_jwt = false
+
+[functions.approve-family-link]
+verify_jwt = false
+
+[functions.check-missed-doses]
+verify_jwt = false
+
+[functions.stock-alert-check]
+verify_jwt = false
+
+[functions.send-due-reminders]
+verify_jwt = false

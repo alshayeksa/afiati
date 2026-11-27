@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "afiati-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "afiati",
+      // Replace with the id printed by `npx wrangler d1 create afiati` before the first remote deploy.
+      // Local development (`npm run dev`) works with this placeholder.
+      "database_id": "424e4dd1-5315-4db6-917b-a2785aadfa4f",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
