@@ -220,7 +220,7 @@ fun TabList(header: @Composable () -> Unit, content: LazyListScope.() -> Unit) {
 @Composable
 fun BigTitle(title: String, subtitle: (@Composable () -> Unit)? = null) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 18.dp, bottom = 14.dp)) {
-        Text(title, style = tajawal(40, FontWeight.Bold))
+        Text(title, style = tajawal(32, FontWeight.Bold))
         subtitle?.invoke()
     }
 }

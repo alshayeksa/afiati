@@ -83,12 +83,6 @@ object Format {
         }
     }
 
-    fun greeting(hour: Int = LocalTime.now().hour) = when (hour) {
-        in 4..11 -> "صباح الخير"
-        in 12..16 -> "نهارك سعيد"
-        in 17..21 -> "مساء الخير"
-        else -> "تصبح على خير"
-    }
 
     private fun date(date: LocalDate) = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant())
 

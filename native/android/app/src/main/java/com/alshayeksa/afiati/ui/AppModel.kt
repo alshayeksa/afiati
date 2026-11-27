@@ -168,6 +168,8 @@ object AppModel {
         app = context.applicationContext
         Db.init(app)
         loadEmergencyContact()
+        Greetings.load()
+        scope.launch { Greetings.refresh() }
         scope.launch {
             reload()
             loaded = true
@@ -219,6 +221,8 @@ object AppModel {
         running = true
         resumeTick++
         if (!::app.isInitialized) return
+        // تحيات جديدة أُضيفت للجدول تظهر دون إعادة تشغيل التطبيق
+        scope.launch { Greetings.refresh() }
         scope.launch {
             reload()
             if (patient != null) {

@@ -116,3 +116,29 @@ class PulseMathTest {
         assertFalse(PulseMath.fingerOn(FrameStats(0.0, luma = 120.0, cb = 110.0, cr = 150.0)))
     }
 }
+
+class GreetingsTest {
+    private val items = (1..30).map { "تحية $it" }
+
+    @Test
+    fun everyGreetingOnceBeforeRepeating() {
+        for (cycle in 0L..3L) {
+            val days = (cycle * 30 until cycle * 30 + 30).map { com.alshayeksa.afiati.ui.Greetings.pick(items, it) }
+            assertEquals("cycle $cycle", 30, days.toSet().size)
+        }
+    }
+
+    @Test
+    fun sameDaySameGreetingAndOrderChangesBetweenCycles() {
+        assertEquals(com.alshayeksa.afiati.ui.Greetings.pick(items, 20_500), com.alshayeksa.afiati.ui.Greetings.pick(items, 20_500))
+        val first = (0L until 30L).map { com.alshayeksa.afiati.ui.Greetings.pick(items, it) }
+        val second = (30L until 60L).map { com.alshayeksa.afiati.ui.Greetings.pick(items, it) }
+        assertTrue(first != second)
+    }
+
+    @Test
+    fun emptyAndSingle() {
+        assertEquals("", com.alshayeksa.afiati.ui.Greetings.pick(emptyList(), 5))
+        assertEquals("وحيدة", com.alshayeksa.afiati.ui.Greetings.pick(listOf("وحيدة"), 12345))
+    }
+}

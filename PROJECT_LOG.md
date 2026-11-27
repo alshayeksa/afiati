@@ -298,3 +298,19 @@ Manual entry is currently faster and more reliable for the target flow.
 - Local end-to-end: new help details 27/27 (gender both ways, time in Riyadh, reason, map link, late location re-alert and quiet update, permissions, invalid coordinates, older-build profile update). Help regression 32/32 and alerts 30/30.
 - Production after deploy: sync 20/20, family 26/26. Test accounts removed; only the owner's account remains.
 - Not yet installed on the Samsung: it disconnected from the computer before installation.
+
+## 2026-11-27 - Daily greetings from the database, smaller titles
+
+### Change
+- D1 table `greetings` (migration `0004_greetings.sql`) seeded with the owner's 30 greetings. Public `GET /v1/greetings` returns the active ones.
+  - Add: `INSERT INTO greetings (text) VALUES ('...');`
+  - Hide: `UPDATE greetings SET is_active = 0 WHERE id = ...;`
+- Android: the home screen shows the day's greeting (30sp, glow colour) instead of the time-of-day greeting and the name, which is already in the top bar.
+  - A random order is fixed per cycle, so every greeting appears once before any repeats, and the same day always shows the same greeting.
+  - The list is cached on the phone, bundled for first launch offline, and refreshed at most every 12 hours (also on returning to the app).
+- Titles of «أدويتي», «السجل» and «العائلة» reduced from 40 to 32sp.
+
+### Verification
+- Production: `/v1/greetings` returns 30 greetings with correct Arabic.
+- Unit tests: no repeat within a cycle, stable per day, empty and single lists. All 20 unit tests pass.
+- Not yet installed on the Samsung (not connected).

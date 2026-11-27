@@ -175,8 +175,8 @@ private fun Greeting() {
         else -> Brand.glow to "كل بياناتك محفوظة"
     }
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 18.dp)) {
-        Text(Format.greeting(), style = tajawal(20, FontWeight.Medium, Brand.glow))
-        Text(AppModel.patient?.fullName.orEmpty(), style = tajawal(40, FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // الاسم في الشريط العلوي، فهنا تحية اليوم من جدول التحيات
+        Text(Greetings.forDay(AppModel.today), style = tajawal(30, FontWeight.Bold, Brand.glow))
         Text("${Format.gregorianDay(AppModel.today)} · ${Format.hijriDay(AppModel.today)}", style = tajawal(16, color = Brand.secondaryText))
         StatusLine(color, text, Modifier.padding(top = 6.dp))
     }
