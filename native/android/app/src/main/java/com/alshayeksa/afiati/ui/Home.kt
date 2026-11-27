@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Diversity1
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Today
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -104,6 +105,7 @@ fun HomeScreen() {
     var showProfile by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showNotifications by rememberSaveable { mutableStateOf(false) }
+    var showAbout by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
     var openMedication by remember { mutableStateOf<Medication?>(null) }
     var openPatient by remember { mutableStateOf<FamilyLink?>(null) }
@@ -113,23 +115,23 @@ fun HomeScreen() {
     LaunchedEffect(pendingOpen) {
         when (pendingOpen) {
             "family" -> {
-                showAdd = false; openPatient = null; showProfile = false; showSettings = false; showNotifications = false; openMedication = null
+                showAdd = false; openPatient = null; showProfile = false; showSettings = false; showNotifications = false; showAbout = false; openMedication = null
                 tab = Tab.FAMILY
                 AppModel.familyFocus++
             }
             "help" -> {
-                showAdd = false; openPatient = null; showProfile = false; showSettings = false; showNotifications = false; openMedication = null
+                showAdd = false; openPatient = null; showProfile = false; showSettings = false; showNotifications = false; showAbout = false; openMedication = null
                 AppModel.refreshHelp()
                 // للكبير: حالة طلبه. لفرد العائلة: بطاقة الطلب أعلى الشاشة
                 if (AppModel.myHelp != null) showHelp = true else tab = Tab.TODAY
             }
             "notifications" -> {
-                showAdd = false; openPatient = null; showProfile = false; showSettings = false; openMedication = null
+                showAdd = false; openPatient = null; showProfile = false; showSettings = false; showAbout = false; openMedication = null
                 showNotifications = true
             }
             else -> if (pendingOpen?.startsWith(MainActivity.OPEN_PATIENT_PREFIX) == true) {
                 // تنبيه جرعة فائتة أو مخزون: يفتح يوم هذا القريب مباشرة
-                showAdd = false; showHelp = false; openPatient = null; showProfile = false; showSettings = false; showNotifications = false; openMedication = null
+                showAdd = false; showHelp = false; openPatient = null; showProfile = false; showSettings = false; showNotifications = false; showAbout = false; openMedication = null
                 tab = Tab.FAMILY
                 val patientId = pendingOpen.removePrefix(MainActivity.OPEN_PATIENT_PREFIX)
                 AppModel.refreshFamily()
@@ -156,7 +158,7 @@ fun HomeScreen() {
     BackHandler(enabled = tab != Tab.TODAY && !showAdd && !showHelp && openPatient == null) { tab = Tab.TODAY }
 
     val header: @Composable () -> Unit = {
-        TopBar(onProfile = { showProfile = true }, onNotifications = { showNotifications = true }, onSettings = { showSettings = true })
+        TopBar(onProfile = { showProfile = true }, onNotifications = { showNotifications = true }, onAbout = { showAbout = true }, onSettings = { showSettings = true })
     }
     Box(Modifier.fillMaxSize()) {
         when (tab) {
@@ -192,6 +194,7 @@ fun HomeScreen() {
             showProfile -> ProfileSheet(onDismiss = { showProfile = false })
             showSettings -> SettingsSheet(onDismiss = { showSettings = false })
             showNotifications -> NotificationsSheet(onDismiss = { showNotifications = false })
+            showAbout -> AboutSheet(onDismiss = { showAbout = false })
             openMedication != null -> MedicationSheet(openMedication!!, onDismiss = { openMedication = null })
         }
     }
@@ -219,7 +222,7 @@ fun BigTitle(title: String, subtitle: (@Composable () -> Unit)? = null) {
 }
 
 @Composable
-private fun TopBar(onProfile: () -> Unit, onNotifications: () -> Unit, onSettings: () -> Unit) {
+private fun TopBar(onProfile: () -> Unit, onNotifications: () -> Unit, onAbout: () -> Unit, onSettings: () -> Unit) {
     val patient = AppModel.patient
     Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         // اسم المستخدم: يفتح ملفه
@@ -244,6 +247,11 @@ private fun TopBar(onProfile: () -> Unit, onNotifications: () -> Unit, onSetting
                     Box(Modifier.align(Alignment.TopEnd).padding(7.dp).size(10.dp).background(Brand.danger, CircleShape).border(1.5.dp, Brand.base, CircleShape))
                 }
             }
+            Box(Modifier.padding(horizontal = 3.dp).width(1.dp).height(18.dp).background(Brand.text.copy(alpha = 0.2f)))
+            Icon(
+                Icons.Outlined.Info, "عن التطبيق", tint = Brand.text,
+                modifier = Modifier.clip(CircleShape).clickable(role = Role.Button, onClick = onAbout).padding(9.dp).size(24.dp),
+            )
             Box(Modifier.padding(horizontal = 3.dp).width(1.dp).height(18.dp).background(Brand.text.copy(alpha = 0.2f)))
             Icon(
                 Icons.Filled.Settings, "الإعدادات", tint = Brand.text,

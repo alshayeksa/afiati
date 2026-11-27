@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.filled.AlarmOn
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PersonAdd
@@ -108,7 +110,7 @@ fun ProfileSheet(onDismiss: () -> Unit) {
     }
 }
 
-/** الإعدادات: التذكيرات، المظهر، المزامنة، وعن التطبيق */
+/** الإعدادات: التذكيرات، رقم الطوارئ، المظهر، والمزامنة */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsSheet(onDismiss: () -> Unit) {
@@ -168,16 +170,39 @@ fun SettingsSheet(onDismiss: () -> Unit) {
 
             FieldLabel("المزامنة", Modifier.padding(top = 10.dp))
             SyncCard()
+        }
+    }
+}
 
-            FieldLabel("عن التطبيق", Modifier.padding(top = 10.dp))
+const val DEVELOPER_SITE = "https://alshaye.ai"
+
+/** عن التطبيق: من زر «i» أعلى الشاشة، بين الإشعارات والإعدادات */
+@Composable
+fun AboutSheet(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    AfiatiSheet("عن التطبيق", onDismiss) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(
-                Modifier.fillMaxWidth().glass(RoundedCornerShape(24.dp)).padding(20.dp),
+                Modifier.fillMaxWidth().glass(RoundedCornerShape(24.dp)).padding(22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                LogoView(72.dp)
-                Text("عافيتي", style = tajawal(26, FontWeight.Bold))
-                Text("مساعدك الأمين لمواعيد الأدوية، وطمأنينة لعائلتك.", style = tajawal(16, color = Brand.secondaryText), textAlign = TextAlign.Center)
+                LogoView(84.dp)
+                Text("عافيتي", style = tajawal(30, FontWeight.Bold))
+                Text("مساعدك الأمين لمواعيد الأدوية، وطمأنينة لعائلتك.", style = tajawal(17, color = Brand.secondaryText), textAlign = TextAlign.Center)
                 Text("الإصدار ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", style = tajawal(14, color = Brand.secondaryText))
+            }
+            Column(
+                Modifier.fillMaxWidth().glass(RoundedCornerShape(24.dp)).padding(22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text("تطوير", style = tajawal(15, color = Brand.secondaryText))
+                Text("شايع الشايع", style = tajawal(26, FontWeight.Bold))
+                Text("مطور وخبير ذكاء اصطناعي", style = tajawal(17, color = Brand.secondaryText), textAlign = TextAlign.Center)
+                Spacer(Modifier.height(6.dp))
+                GlassButton("alshaye.ai", icon = Icons.Filled.Language) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(DEVELOPER_SITE)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                        .onFailure { AppModel.toast = "لا يوجد متصفح لفتح الموقع" }
+                }
             }
         }
     }
