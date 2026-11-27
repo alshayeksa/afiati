@@ -272,12 +272,11 @@ fun DrawScope.drawWave(phase: Float, waveColors: Array<Pair<Float, Color>>, stro
 
 /**
  * موجة النبض: خطوط رفيعة مضيئة تنساب كالموجة، ثم تجتمع في نبضتي قلب (تخطيط القلب).
- * النبضة تخفق مرة كل ثانية، ونقطة ضوء تسري على الخط من اليمين إلى اليسار.
+ * كل دورة تبدأ بتوهج في الطرف الأيمن، ورأس مضيء يرسم الخط نحو اليسار تاركًا أثرًا يخبو،
+ * ثم تنتهي بتوهج في الطرف الأيسر. الألوان تتبدل بهدوء بين الأزرق والسماوي والبنفسجي.
  */
 @Composable
 fun PulseWave(modifier: Modifier = Modifier, animated: Boolean = true) {
-    val colors = waveColors(Palette(Appearance.accent, Appearance.light))
-    val dot = Brand.glow
     var time by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(animated) {
         if (!animated) return@LaunchedEffect
@@ -285,22 +284,20 @@ fun PulseWave(modifier: Modifier = Modifier, animated: Boolean = true) {
         val start = withFrameNanos { it }
         while (true) withFrameNanos { time = offset + (it - start) / 1e9f }
     }
+    val light = Appearance.light
     Box(modifier.clearAndSetSemantics {}) {
-        Canvas(Modifier.fillMaxSize().blur(8.dp, BlurredEdgeTreatment.Unbounded)) {
-            drawPulseWave(time, colors, strokeWidth = 2.2.dp.toPx(), alpha = 0.22f, lines = 7)
+        Canvas(Modifier.fillMaxSize().blur(9.dp, BlurredEdgeTreatment.Unbounded)) {
+            drawPulseWave(time, light, strokeWidth = 2.6.dp.toPx(), alpha = 0.55f, lines = 7)
         }
         Canvas(Modifier.fillMaxSize()) {
-            drawPulseWave(time, colors, strokeWidth = 0.7.dp.toPx(), alpha = 0.7f, lines = 16)
-            // نقطة الضوء على الخط الأوسط
-            val t = 1f - ((time / 3.2f) % 1f)
-            val x = size.width * (1f - t)
-            val y = pulseCenter(t, time, size.height)
-            drawCircle(dot.copy(alpha = 0.18f), 14.dp.toPx(), Offset(x, y))
-            drawCircle(dot.copy(alpha = 0.45f), 7.dp.toPx(), Offset(x, y))
-            drawCircle(Color.White, 2.8.dp.toPx(), Offset(x, y))
+            drawPulseWave(time, light, strokeWidth = 0.8.dp.toPx(), alpha = 1f, lines = 16)
+            drawSweepGlow(time, light)
         }
     }
 }
+
+/** مدة رسم النبضة من طرف إلى طرف */
+private const val SWEEP_SECONDS = 3.6f
 
 /** موضعا النبضتين على عرض الموجة (0 يمين، 1 يسار) */
 private val BEATS = floatArrayOf(0.30f, 0.70f)
@@ -321,11 +318,40 @@ private fun pulseCenter(t: Float, time: Float, height: Float): Float {
     return y
 }
 
-fun DrawScope.drawPulseWave(time: Float, waveColors: Array<Pair<Float, Color>>, strokeWidth: Float, alpha: Float, lines: Int) {
+/** لون متبدل: يتنقل بهدوء بين الأزرق والسماوي والبنفسجي مع الزمن وعلى طول الخط */
+private fun shiftingColor(time: Float, position: Float, light: Boolean, alpha: Float): Color {
+    val hue = (205f + 45f * sin(time * 0.45f + position * 2.4f) + 360f) % 360f
+    return Color.hsv(hue, if (light) 0.85f else 0.62f, if (light) 0.78f else 1f, alpha.coerceIn(0f, 1f))
+}
+
+/** تقدم الرسم في الدورة: 0 عند الطرف الأيمن، 1 عند الأيسر */
+private fun sweep(time: Float) = (time / SWEEP_SECONDS) % 1f
+
+/**
+ * فرشاة الخط: أمام الرأس (لم يُرسم بعد) خافت، الرأس أبيض متوهج، وخلفه أثر ملوّن يخبو تدريجيًا.
+ * المواضع على الشاشة من اليسار (0) إلى اليمين (1)؛ الرأس يتحرك من اليمين إلى اليسار.
+ */
+private fun sweepBrush(time: Float, light: Boolean, width: Float, alpha: Float): Brush {
+    val head = 1f - sweep(time)
+    val dim = 0.16f * alpha
+    fun at(x: Float) = x.coerceIn(0f, 1f)
+    val stops = listOf(
+        0f to shiftingColor(time, 0f, light, dim),
+        at(head - 0.02f) to shiftingColor(time, head, light, dim),
+        at(head) to Color.White.copy(alpha = alpha),
+        at(head + 0.05f) to shiftingColor(time, head + 0.05f, light, alpha),
+        at(head + 0.30f) to shiftingColor(time, head + 0.30f, light, 0.65f * alpha),
+        at(head + 0.65f) to shiftingColor(time, head + 0.65f, light, 0.35f * alpha),
+        1f to shiftingColor(time, 1f, light, 0.30f * alpha),
+    ).distinctBy { it.first }
+    return Brush.horizontalGradient(*stops.toTypedArray(), startX = 0f, endX = width)
+}
+
+fun DrawScope.drawPulseWave(time: Float, light: Boolean, strokeWidth: Float, alpha: Float, lines: Int) {
     val width = size.width
     val height = size.height
     if (width <= 0f) return
-    val brush = Brush.horizontalGradient(*waveColors, startX = width, endX = 0f)
+    val brush = sweepBrush(time, light, width, alpha)
     val step = 1.5.dp.toPx()
     val path = Path()
     for (index in 0 until lines) {
@@ -343,8 +369,29 @@ fun DrawScope.drawPulseWave(time: Float, waveColors: Array<Pair<Float, Color>>, 
             first = false
             x += step
         }
-        drawPath(path, brush, alpha = alpha * (1f - abs(k) * 0.9f), style = Stroke(strokeWidth))
+        drawPath(path, brush, alpha = 1f - abs(k) * 0.9f, style = Stroke(strokeWidth))
     }
+}
+
+/** الرأس المضيء، وتوهج البداية في الطرف الأيمن وتوهج النهاية في الطرف الأيسر */
+private fun DrawScope.drawSweepGlow(time: Float, light: Boolean) {
+    val width = size.width
+    val height = size.height
+    val p = sweep(time)
+    val t = p
+    val head = Offset(width * (1f - t), pulseCenter(t, time, height))
+    val color = shiftingColor(time, 1f - p, light, 1f)
+    // الرأس
+    drawCircle(Brush.radialGradient(listOf(color.copy(alpha = 0.55f), Color.Transparent), head, 22.dp.toPx()), 22.dp.toPx(), head)
+    drawCircle(Color.White, 3.dp.toPx(), head)
+    // توهج الانطلاق: يشتعل في الطرف الأيمن أول الدورة ثم يخبو
+    val startGlow = exp(-p * 9f)
+    val right = Offset(width, pulseCenter(0f, time, height))
+    drawCircle(Brush.radialGradient(listOf(shiftingColor(time, 1f, light, 0.85f * startGlow), Color.Transparent), right, 46.dp.toPx()), 46.dp.toPx(), right)
+    // توهج الوصول: يكبر حين يقترب الرأس من الطرف الأيسر ويبقى لحظة بعد الوصول
+    val endGlow = maxOf(exp(-(1f - p) * 9f), 0.9f * exp(-p * 7f))
+    val left = Offset(0f, pulseCenter(1f, time, height))
+    drawCircle(Brush.radialGradient(listOf(shiftingColor(time, 0f, light, 0.85f * endGlow), Color.Transparent), left, 46.dp.toPx()), 46.dp.toPx(), left)
 }
 
 /** شعار عافيتي داخل مربع أبيض مستدير بتوهج خفيف */
