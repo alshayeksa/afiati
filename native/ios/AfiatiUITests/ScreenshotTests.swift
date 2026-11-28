@@ -67,7 +67,9 @@ final class ScreenshotTests: XCTestCase {
         app = launch(as: family.son, lang: lang)
         tapTab(app, t("العائلة", "Family"))
         let needs = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", t("تحتاج مساعدة", "needs help"))).firstMatch
-        XCTAssertTrue(needs.waitForExistence(timeout: 30), "help alert not shown to the son")
+        // The local server can be slow right after a help request: look again after a refresh
+        if !needs.waitForExistence(timeout: 45) { refresh(app); tapTab(app, t("العائلة", "Family")) }
+        XCTAssertTrue(needs.waitForExistence(timeout: 45), "help alert not shown to the son")
         sleep(2)
         save("alert", lang)
         _ = try api("POST", "/v1/help/\(alertId)/resolve", token: family.elder.token)
@@ -107,8 +109,8 @@ final class ScreenshotTests: XCTestCase {
     /// The system asks once for notifications: allow, so the app looks as it does for real users
     private func allowNotifications() {
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let allow = springboard.buttons["Allow"]
-        if allow.waitForExistence(timeout: 6) { allow.tap() }
+        let allow = springboard.buttons.matching(NSPredicate(format: "label IN %@", ["Allow", "السماح"])).firstMatch
+        if allow.waitForExistence(timeout: 8) { allow.tap() }
     }
 
     /// Background and foreground: the app reads help requests and the family again

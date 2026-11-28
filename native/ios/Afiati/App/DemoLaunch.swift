@@ -12,6 +12,8 @@ enum DemoLaunch {
     static func apply() {
         let defaults = UserDefaults.standard
         guard let id = defaults.string(forKey: "demoProfile"), let token = defaults.string(forKey: "demoToken") else { return }
+        // A real user is asked after setting up; the demo skips that screen, so ask here (the test taps «Allow»)
+        Task { _ = await Reminders.requestPermission() }
         if PatientRepository.get()?.id == id { return }
         // Another demo person: start from a clean phone
         for table in ["medication_logs_local", "medications_local", "outbox", "heart_rate_local", "vital_readings_local", "sync_state", "patients_local"] {
