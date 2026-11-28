@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddShoppingCart
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.StopCircle
 import androidx.compose.material3.Text
@@ -41,10 +42,10 @@ fun MedicationsScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpen:
                 tr("أدويتي", "My medicines"),
                 when (medications.size) {
                     0 -> tr("لا توجد أدوية بعد", "No medicines yet")
-                    1 -> tr("دواء واحد نشط · اضغط مطوّلًا لخيارات أكثر", "One active medicine · long-press for more options")
-                    2 -> tr("دواءان نشطان · اضغط مطوّلًا لخيارات أكثر", "Two active medicines · long-press for more options")
-                    in 3..10 -> tr("${medications.size} أدوية نشطة · اضغط مطوّلًا لخيارات أكثر", "${medications.size} active medicines · long-press for more options")
-                    else -> tr("${medications.size} دواءً نشطًا · اضغط مطوّلًا لخيارات أكثر", "${medications.size} active medicines · long-press for more options")
+                    1 -> tr("دواء واحد نشط · اضغط عليه للتعديل", "One active medicine · tap it to edit")
+                    2 -> tr("دواءان نشطان · اضغط على الدواء للتعديل", "Two active medicines · tap one to edit")
+                    in 3..10 -> tr("${medications.size} أدوية نشطة · اضغط على الدواء للتعديل", "${medications.size} active medicines · tap one to edit")
+                    else -> tr("${medications.size} دواءً نشطًا · اضغط على الدواء للتعديل", "${medications.size} active medicines · tap one to edit")
                 },
             )
         }
@@ -96,7 +97,7 @@ fun MedicationCard(medication: Medication) {
 
 /** تفاصيل الدواء: الجدول والمخزون، وإضافة علبة، وإيقاف الدواء */
 @Composable
-fun MedicationSheet(medication: Medication, onDismiss: () -> Unit) {
+fun MedicationSheet(medication: Medication, onDismiss: () -> Unit, onEdit: (Medication) -> Unit = {}) {
     // أحدث نسخة من الدواء بعد أي تعديل
     val current = AppModel.medications.firstOrNull { it.id == medication.id } ?: medication
     var refilling by remember { mutableStateOf(false) }
@@ -118,6 +119,7 @@ fun MedicationSheet(medication: Medication, onDismiss: () -> Unit) {
         }
         Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             PrimaryButton(tr("أضفت علبة جديدة", "I added a new box"), icon = Icons.Filled.AddShoppingCart) { refilling = true }
+            GlassButton(tr("تعديل الدواء", "Edit medicine"), icon = Icons.Filled.Edit) { onEdit(current) }
             GlassButton(tr("إيقاف هذا الدواء", "Stop this medicine"), icon = Icons.Filled.StopCircle, color = Brand.danger) { stopping = true }
         }
     }

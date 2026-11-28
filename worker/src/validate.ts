@@ -42,6 +42,8 @@ export type LogRow = {
   status: string;
   created_at: string;
   updated_at: string;
+  /** The user un-ticked a dose taken by mistake: the only way a 'taken' dose goes back to pending. */
+  undo_taken: boolean;
 };
 
 export function parseMedication(raw: Raw, patientId: string): MedicationRow {
@@ -86,6 +88,7 @@ export function parseLog(raw: Raw, patientId: string): LogRow {
     status,
     created_at: iso(raw.created_at, 'created_at'),
     updated_at: iso(raw.updated_at, 'updated_at'),
+    undo_taken: raw.undo_taken === true && status === 'pending',
   };
 }
 

@@ -10,10 +10,10 @@ struct MedicationsScreen: View {
         let count = model.medications.count
         switch count {
         case 0: return tr("لا توجد أدوية بعد", "No medicines yet")
-        case 1: return tr("دواء واحد نشط · اضغط مطوّلًا لخيارات أكثر", "One active medicine · long-press for more options")
-        case 2: return tr("دواءان نشطان · اضغط مطوّلًا لخيارات أكثر", "Two active medicines · long-press for more options")
-        case 3...10: return tr("\(count) أدوية نشطة · اضغط مطوّلًا لخيارات أكثر", "\(count) active medicines · long-press for more options")
-        default: return tr("\(count) دواءً نشطًا · اضغط مطوّلًا لخيارات أكثر", "\(count) active medicines · long-press for more options")
+        case 1: return tr("دواء واحد نشط · اضغط عليه للتعديل", "One active medicine · tap it to edit")
+        case 2: return tr("دواءان نشطان · اضغط على الدواء للتعديل", "Two active medicines · tap one to edit")
+        case 3...10: return tr("\(count) أدوية نشطة · اضغط على الدواء للتعديل", "\(count) active medicines · tap one to edit")
+        default: return tr("\(count) دواءً نشطًا · اضغط على الدواء للتعديل", "\(count) active medicines · tap one to edit")
         }
     }
 
@@ -71,6 +71,7 @@ struct MedicationCard: View {
 struct MedicationSheet: View {
     let medication: Medication
     let onDismiss: () -> Void
+    var onEdit: (Medication) -> Void = { _ in }
     @EnvironmentObject private var model: AppModel
     @State private var refilling = false
     @State private var stopping = false
@@ -95,6 +96,7 @@ struct MedicationSheet: View {
             .padding(.top, 18)
             VStack(spacing: 10) {
                 PrimaryButton(tr("أضفت علبة جديدة", "I added a new box"), icon: "cart.badge.plus") { refilling = true }
+                GlassButton(tr("تعديل الدواء", "Edit medicine"), icon: "pencil") { onEdit(current) }
                 GlassButton(tr("إيقاف هذا الدواء", "Stop this medicine"), icon: "stop.circle.fill", color: Brand.danger) { stopping = true }
             }
             .padding(.top, 16)

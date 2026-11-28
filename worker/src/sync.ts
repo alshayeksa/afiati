@@ -191,15 +191,27 @@ const LOG_UPDATE = `DO UPDATE SET
        AND medication_logs.status <> 'taken'
        AND (excluded.status = 'taken' OR excluded.updated_at >= medication_logs.updated_at)`;
 
+// The user's own correction («I didn't take it»): newer than what is stored, it may undo 'taken'.
+// A late missed-dose alert to the family becomes possible again.
+const LOG_UNDO = `DO UPDATE SET
+       taken_at = NULL,
+       status = 'pending',
+       updated_at = excluded.updated_at,
+       family_notified_at = NULL,
+       server_seq = excluded.server_seq
+     WHERE medication_logs.patient_id = excluded.patient_id
+       AND excluded.updated_at >= medication_logs.updated_at`;
+
 function logUpsert(env: Env, row: LogRow) {
+  const update = row.undo_taken ? LOG_UNDO : LOG_UPDATE;
   // The second conflict target covers the same dose arriving under a different id
   // (older app builds generated random log ids).
   return env.DB.prepare(
     `INSERT INTO medication_logs
        (id, medication_id, patient_id, scheduled_at, taken_at, status, created_at, updated_at, server_seq)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(server_seq), 0) + 1 FROM medication_logs))
-     ON CONFLICT(id) ${LOG_UPDATE}
-     ON CONFLICT(medication_id, scheduled_at) ${LOG_UPDATE}`,
+     ON CONFLICT(id) ${update}
+     ON CONFLICT(medication_id, scheduled_at) ${update}`,
   ).bind(row.id, row.medication_id, row.patient_id, row.scheduled_at, row.taken_at, row.status, row.created_at, row.updated_at);
 }
 

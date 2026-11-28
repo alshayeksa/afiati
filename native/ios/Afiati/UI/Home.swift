@@ -68,8 +68,10 @@ struct HomeView: View {
     @State private var showHelp = false
     @State private var openPatient: FamilyLink?
     @State private var sheet: HomeSheet?
+    @State private var editMedication: Medication?
 
     private func closeAll() {
+        editMedication = nil
         showAdd = false; showVitals = false; showPulse = false; openPatient = nil; sheet = nil
     }
 
@@ -101,6 +103,9 @@ struct HomeView: View {
             if showAdd {
                 AddMedicationScreen(onClose: { hide { showAdd = false } })
             }
+            if let medication = editMedication {
+                AddMedicationScreen(onClose: { hide { editMedication = nil } }, editing: medication)
+            }
             if showVitals {
                 VitalsScreen(onClose: { hide { showVitals = false } }, onPulse: { show { showPulse = true } })
             }
@@ -121,7 +126,11 @@ struct HomeView: View {
             case .settings: SettingsSheet(onDismiss: { sheet = nil })
             case .notifications: NotificationsSheet(onDismiss: { sheet = nil })
             case .about: AboutSheet(onDismiss: { sheet = nil })
-            case .medication(let medication): MedicationSheet(medication: medication, onDismiss: { sheet = nil })
+            case .medication(let medication):
+                MedicationSheet(medication: medication, onDismiss: { sheet = nil }, onEdit: { chosen in
+                    sheet = nil
+                    show { editMedication = chosen }
+                })
             }
         }
         .onAppear { handle(model.pendingOpen) }

@@ -507,7 +507,7 @@ struct PatientScreen: View {
                         if current.privacyLevel == Privacy.statusOnly || log.medicationName.isEmpty { copy.medicationName = tr("جرعة دواء", "Medicine dose") }
                         return copy
                     }()
-                    DoseRow(log: shown, state: doseState(log, now: now), onTake: nil) {}
+                    DoseRow(log: shown, state: doseState(log, now: now), onTake: nil)
                 }
             }
         } else if let error = error {

@@ -51,7 +51,7 @@ struct HistoryScreen: View {
                 ForEach(chosenLogs) { log in
                     let state: DoseState = chosen == today ? doseState(log, now: now, takenOverride: model.isTaken(log))
                         : (log.status == DoseStatus.taken ? .taken : .missed)
-                    DoseRow(log: log, state: state, onTake: nil) {}
+                    DoseRow(log: log, state: state, onTake: nil)
                 }
             }
         }

@@ -33,6 +33,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Medication
+import androidx.compose.material.icons.filled.Scale
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.ExpandLess
@@ -62,6 +64,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.alshayeksa.afiati.data.Medication
 import com.alshayeksa.afiati.data.MedicationDraft
 import com.alshayeksa.afiati.data.RepeatType
 import com.alshayeksa.afiati.data.Schedule
@@ -97,18 +100,21 @@ private fun defaultTimes(count: Int): List<String> = when (count) {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun AddMedicationScreen(onClose: () -> Unit) {
+fun AddMedicationScreen(onClose: () -> Unit, editing: Medication? = null) {
     val scope = rememberCoroutineScope()
-    var step by remember { mutableIntStateOf(1) }
-    var name by remember { mutableStateOf("") }
-    var dose by remember { mutableDoubleStateOf(1.0) }
-    var unit by remember { mutableStateOf("حبة") }
-    var repeatType by remember { mutableStateOf(RepeatType.DAILY) }
-    var frequency by remember { mutableIntStateOf(1) }
-    val times = remember { mutableStateListOf("08:00") }
-    val days = remember { mutableStateListOf<Int>() }
-    var trackStock by remember { mutableStateOf(true) }
-    var stock by remember { mutableIntStateOf(30) }
+    // التعديل يبدأ من صفحة البيانات: يرى كل شيء ويضغط «تعديل» بجانب ما يريد تغييره
+    var step by remember { mutableIntStateOf(if (editing != null) STEPS else 1) }
+    var name by remember { mutableStateOf(editing?.name ?: "") }
+    var dose by remember { mutableDoubleStateOf(editing?.doseAmount ?: 1.0) }
+    var unit by remember { mutableStateOf(editing?.doseUnit?.takeIf { it in units } ?: "حبة") }
+    var repeatType by remember { mutableStateOf(editing?.repeatType ?: RepeatType.DAILY) }
+    var frequency by remember {
+        mutableIntStateOf(editing?.let { (if (it.repeatType == RepeatType.DAILY) it.times.size else it.repeatDays.size).coerceIn(1, MAX_FREQUENCY) } ?: 1)
+    }
+    val times = remember { mutableStateListOf<String>().apply { addAll(editing?.times?.takeIf { it.isNotEmpty() } ?: listOf("08:00")) } }
+    val days = remember { mutableStateListOf<Int>().apply { addAll(editing?.repeatDays.orEmpty()) } }
+    var trackStock by remember { mutableStateOf(editing == null || editing.stockCount != null) }
+    var stock by remember { mutableIntStateOf(editing?.stockCount ?: 30) }
     var editingTime by remember { mutableStateOf<Int?>(null) }
     var showMore by remember { mutableStateOf(false) }
     var category by remember { mutableStateOf<String?>(null) }
@@ -156,6 +162,11 @@ fun AddMedicationScreen(onClose: () -> Unit) {
     fun save(force: Boolean = false) {
         scope.launch {
             val value = draft()
+            if (editing != null) {
+                AppModel.editMedication(editing, value)
+                onClose()
+                return@launch
+            }
             if (!force) {
                 val duplicate = AppModel.findDuplicate(value)
                 if (duplicate != null) {
@@ -179,10 +190,14 @@ fun AddMedicationScreen(onClose: () -> Unit) {
         if (step < STEPS) step++ else save()
     }
 
-    val dirty = name.isNotBlank() || step > 1
+    val dirty = if (editing != null) draft().let {
+        it.name != editing.name || it.doseAmount != editing.doseAmount || it.doseUnit != editing.doseUnit || it.repeatType != editing.repeatType ||
+            it.repeatDays != editing.repeatDays.sorted() || it.times != Schedule.timesFor(editing.repeatType, editing.times) || it.stockCount != editing.stockCount
+    } else name.isNotBlank() || step > 1
     BackHandler {
         when {
-            step > 1 -> step--
+            editing != null && step < STEPS -> step = STEPS
+            editing == null && step > 1 -> step--
             dirty -> confirmClose = true
             else -> onClose()
         }
@@ -198,8 +213,13 @@ fun AddMedicationScreen(onClose: () -> Unit) {
             ) { Icon(Icons.Filled.Close, tr("إغلاق", "Close"), tint = Brand.text, modifier = Modifier.size(24.dp)) }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(tr("إضافة دواء", "Add medicine"), style = tajawal(22, FontWeight.Bold))
-                Text(tr("الخطوة $step من $STEPS", "Step $step of $STEPS"), style = tajawal(15, color = Brand.secondaryText))
+                Text(if (editing != null) tr("تعديل الدواء", "Edit medicine") else tr("إضافة دواء", "Add medicine"), style = tajawal(22, FontWeight.Bold))
+                Text(
+                    if (editing == null) tr("الخطوة $step من $STEPS", "Step $step of $STEPS")
+                    else if (step == STEPS) tr("اضغط «تعديل» بجانب ما تريد تغييره", "Tap “Edit” next to what you want to change")
+                    else tr("عدّل ثم اضغط «تم»", "Change it, then tap “Done”"),
+                    style = tajawal(15, color = Brand.secondaryText),
+                )
             }
         }
         val progress by animateFloatAsState(step / STEPS.toFloat(), label = "step")
@@ -330,12 +350,18 @@ fun AddMedicationScreen(onClose: () -> Unit) {
                     }
                 }
                 else -> {
-                    StepTitle(tr("تأكد من البيانات", "Check the details"), tr("اضغط «حفظ الدواء» إذا كان كل شيء صحيحًا.", "Tap “Save medicine” if everything is right."))
+                    if (editing != null) StepTitle(tr("بيانات الدواء", "Medicine details"), tr("ما سجّلته من جرعاته يبقى في السجل.", "The doses you already logged stay in your history."))
+                    else StepTitle(tr("تأكد من البيانات", "Check the details"), tr("اضغط «حفظ الدواء» إذا كان كل شيء صحيحًا.", "Tap “Save medicine” if everything is right."))
                     val value = draft()
                     Card {
-                        Text(value.name, style = tajawal(28, FontWeight.Bold))
-                        Text(Format.dose(value.doseAmount, value.doseUnit), style = tajawal(19, color = Brand.secondaryText))
-                        Spacer(Modifier.height(10.dp))
+                        if (editing != null) {
+                            ReviewLine(Icons.Filled.Medication, value.name) { step = 1 }
+                            ReviewLine(Icons.Filled.Scale, Format.dose(value.doseAmount, value.doseUnit)) { step = 2 }
+                        } else {
+                            Text(value.name, style = tajawal(28, FontWeight.Bold))
+                            Text(Format.dose(value.doseAmount, value.doseUnit), style = tajawal(19, color = Brand.secondaryText))
+                            Spacer(Modifier.height(10.dp))
+                        }
                         ReviewLine(Icons.Filled.Schedule, Format.schedule(value.repeatType, value.repeatDays, value.times)) { step = 4 }
                         ReviewLine(Icons.Filled.Today, "${Format.repeatTitle(value.repeatType)} · ${Format.times(value.frequency)}") { step = 3 }
                         ReviewLine(Icons.Filled.Check, value.stockCount?.let { tr("المخزون: $it", "Stock: $it") } ?: tr("بدون متابعة المخزون", "Without stock tracking")) { step = 5 }
@@ -348,11 +374,28 @@ fun AddMedicationScreen(onClose: () -> Unit) {
 
         // الأسفل: التالي والسابق
         Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PrimaryButton(
+            if (editing != null) {
+                // في التعديل: كل خطوة تعود إلى صفحة البيانات، ومنها يحفظ
+                PrimaryButton(
+                    if (step == STEPS) tr("حفظ التعديلات", "Save changes") else tr("تم", "Done"), Modifier.weight(1f),
+                    icon = Icons.Filled.Check, enabled = step != STEPS || dirty,
+                ) {
+                    if (step == STEPS) next() else {
+                        val daysText = if (frequency == 1) tr("يومًا واحدًا", "one day") else tr("$frequency أيام", "$frequency days")
+                        error = when {
+                            step == 1 && name.isBlank() -> tr("اكتب اسم الدواء.", "Type the medicine name.")
+                            step == 4 && repeatType != RepeatType.DAILY && days.size != frequency -> tr("اختر $daysText.", "Choose $daysText.")
+                            else -> null
+                        }
+                        // بعد تغيير التكرار أو عدد المرات: يختار الأيام أو الأوقات قبل العودة
+                        if (error == null) step = if (step == 3) 4 else STEPS
+                    }
+                }
+            } else PrimaryButton(
                 if (step == STEPS) tr("حفظ الدواء", "Save medicine") else tr("التالي", "Next"), Modifier.weight(1f),
                 icon = if (step == STEPS) Icons.Filled.Check else Icons.AutoMirrored.Filled.ArrowForward,
             ) { next() }
-            if (step > 1) GlassButton(tr("السابق", "Back"), Modifier.weight(1f), icon = Icons.AutoMirrored.Filled.ArrowBack) { error = null; step-- }
+            if (editing == null && step > 1) GlassButton(tr("السابق", "Back"), Modifier.weight(1f), icon = Icons.AutoMirrored.Filled.ArrowBack) { error = null; step-- }
         }
     }
 
@@ -374,9 +417,9 @@ fun AddMedicationScreen(onClose: () -> Unit) {
     }
     if (confirmClose) {
         AfiatiDialog(
-            title = tr("إلغاء إضافة الدواء؟", "Cancel adding this medicine?"),
-            text = tr("لن يُحفظ ما كتبته.", "What you typed won't be saved."),
-            confirm = tr("إلغاء الإضافة", "Discard"), destructive = true, onConfirm = { confirmClose = false; onClose() },
+            title = if (editing != null) tr("تجاهل التعديلات؟", "Discard changes?") else tr("إلغاء إضافة الدواء؟", "Cancel adding this medicine?"),
+            text = if (editing != null) tr("يبقى الدواء كما كان.", "The medicine stays as it was.") else tr("لن يُحفظ ما كتبته.", "What you typed won't be saved."),
+            confirm = if (editing != null) tr("تجاهل", "Discard") else tr("إلغاء الإضافة", "Discard"), destructive = true, onConfirm = { confirmClose = false; onClose() },
             dismiss = tr("متابعة", "Keep editing"), onDismiss = { confirmClose = false },
         )
     }

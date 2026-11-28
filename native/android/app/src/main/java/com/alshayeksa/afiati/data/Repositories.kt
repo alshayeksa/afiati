@@ -192,7 +192,9 @@ object MedicationRepository {
     fun logsBetween(patientId: String, fromIso: String, toIso: String): List<DoseLog> = Db.db.rawQuery(
         """SELECT logs.*, m.name AS medication_name, m.dose_amount AS medication_dose_amount, m.dose_unit AS medication_dose_unit
            FROM medication_logs_local logs JOIN medications_local m ON m.id = logs.medication_id
-           WHERE logs.patient_id = ? AND logs.scheduled_at >= ? AND logs.scheduled_at < ?
+           WHERE logs.patient_id = ? AND logs.scheduled_at >= ? AND logs.scheduled_at < ? AND logs.status != 'skipped'
+             -- جرعة منتظرة لدواء أُوقف قبل موعدها لا تظهر
+             AND NOT (m.is_active = 0 AND logs.status = 'pending' AND logs.scheduled_at > COALESCE(m.deleted_at, ''))
            ORDER BY logs.scheduled_at ASC""",
         arrayOf(patientId, fromIso, toIso),
     ).list(::logFrom)
@@ -282,6 +284,76 @@ object MedicationRepository {
         return true
     }
 
+    /**
+     * تراجع عن جرعة سُجّلت بالخطأ: تعود «منتظرة» ويعود المخزون حبة.
+     * الخادم لا يُرجع جرعة مأخوذة إلا بهذه الإشارة الصريحة (undo_taken).
+     */
+    fun untake(patientId: String, logId: String): Boolean = Db.tx { db ->
+        val now = Iso.now()
+        db.compileStatement("UPDATE medication_logs_local SET status = 'pending', taken_at = NULL, updated_at = ? WHERE id = ? AND status = 'taken'").use {
+            it.bindString(1, now)
+            it.bindString(2, logId)
+            if (it.executeUpdateDelete() == 0) return@tx false
+        }
+        val log = db.rawQuery("SELECT * FROM medication_logs_local WHERE id = ?", arrayOf(logId)).first(::logFrom) ?: return@tx false
+        db.execSQL(
+            "UPDATE medications_local SET stock_count = CASE WHEN stock_count IS NULL THEN NULL ELSE stock_count + 1 END, updated_at = ? WHERE id = ?",
+            arrayOf(now, log.medicationId),
+        )
+        Outbox.enqueue(db, patientId, ENTITY_LOG, log.id, Json.log(log).put("undo_taken", true))
+        find(db, log.medicationId)?.let { Outbox.enqueue(db, patientId, ENTITY_MEDICATION, it.id, Json.medication(it)) }
+        true
+    }
+
+    /**
+     * تعديل دواء: الاسم والجرعة والمواعيد والمخزون. ما سُجّل منه يبقى في السجل.
+     * إن تغيّرت المواعيد: جرعات اليوم وما بعده التي لم تؤخذ وليست في الجدول الجديد تُلغى (skipped)،
+     * ومواعيد اليوم الجديدة التي فات وقتها لا تُحسب، فلا تظهر متأخرة.
+     */
+    fun edit(patientId: String, medicationId: String, draft: MedicationDraft): Boolean = Db.tx { db ->
+        val current = find(db, medicationId) ?: return@tx false
+        val now = Iso.now()
+        val updated = current.copy(
+            name = draft.name.trim(), doseAmount = draft.doseAmount, doseUnit = draft.doseUnit, repeatType = draft.repeatType,
+            repeatDays = draft.repeatDays, frequency = draft.frequency, times = draft.times, stockCount = draft.stockCount, updatedAt = now,
+        )
+        db.update("medications_local", values(updated), "id = ?", arrayOf(medicationId))
+        Outbox.enqueue(db, patientId, ENTITY_MEDICATION, updated.id, Json.medication(updated))
+        val scheduleChanged = current.repeatType != updated.repeatType || current.repeatDays.sorted() != updated.repeatDays.sorted() ||
+            Schedule.timesFor(current.repeatType, current.times) != Schedule.timesFor(updated.repeatType, updated.times)
+        if (!scheduleChanged) return@tx true
+        val today = LocalDate.now()
+        fun planned(date: LocalDate): List<String> =
+            if (!Schedule.isScheduledOn(updated.repeatType, updated.repeatDays, date)) emptyList()
+            else Schedule.timesFor(updated.repeatType, updated.times).mapNotNull { Schedule.scheduledAt(date, it) }
+        val keep = (planned(today) + planned(today.plusDays(1))).toSet()
+        val (from, _) = Schedule.dayRange(today)
+        val pending = db.rawQuery(
+            "SELECT * FROM medication_logs_local WHERE medication_id = ? AND status = 'pending' AND scheduled_at >= ?", arrayOf(medicationId, from),
+        ).list(::logFrom)
+        for (log in pending) {
+            if (log.scheduledAt in keep) continue
+            db.execSQL("UPDATE medication_logs_local SET status = 'skipped', updated_at = ? WHERE id = ?", arrayOf(now, log.id))
+            Outbox.enqueue(db, patientId, ENTITY_LOG, log.id, Json.log(log.copy(status = DoseStatus.SKIPPED, updatedAt = now)))
+        }
+        for (scheduledAt in planned(today)) {
+            if (scheduledAt > now) continue
+            val skipped = DoseLog(Ids.doseLogId(medicationId, scheduledAt), medicationId, patientId, scheduledAt, null, DoseStatus.SKIPPED, now, now)
+            val row = db.insertWithOnConflict("medication_logs_local", null, ContentValues().apply {
+                put("id", skipped.id)
+                put("medication_id", medicationId)
+                put("patient_id", patientId)
+                put("scheduled_at", scheduledAt)
+                putNull("taken_at")
+                put("status", skipped.status)
+                put("created_at", now)
+                put("updated_at", now)
+            }, SQLiteDatabase.CONFLICT_IGNORE)
+            if (row != -1L) Outbox.enqueue(db, patientId, ENTITY_LOG, skipped.id, Json.log(skipped))
+        }
+        true
+    }
+
     /** تسجيل من الإشعار: ينشئ الجرعة إن لم تكن موجودة ثم يسجّلها مأخوذة */
     fun markTakenFor(patientId: String, medicationId: String, scheduledAt: String): Boolean = Db.tx { db ->
         if (find(db, medicationId)?.isActive != true) return@tx false
@@ -290,9 +362,19 @@ object MedicationRepository {
     }
 
     /** إيقاف الدواء: يختفي من القوائم والتذكيرات ويبقى في السجل */
-    fun deactivate(patientId: String, medicationId: String) = updateMedication(patientId, medicationId) {
+    fun deactivate(patientId: String, medicationId: String) {
         val now = Iso.now()
-        it.copy(isActive = false, deletedAt = now, updatedAt = now)
+        updateMedication(patientId, medicationId) { it.copy(isActive = false, deletedAt = now, updatedAt = now) }
+        // جرعاته القادمة التي لم تؤخذ تُلغى، فلا تظهر في «جرعات اليوم» ولا عند العائلة
+        Db.tx { db ->
+            val pending = db.rawQuery(
+                "SELECT * FROM medication_logs_local WHERE medication_id = ? AND status = 'pending' AND scheduled_at > ?", arrayOf(medicationId, now),
+            ).list(::logFrom)
+            for (log in pending) {
+                db.execSQL("UPDATE medication_logs_local SET status = 'skipped', updated_at = ? WHERE id = ?", arrayOf(now, log.id))
+                Outbox.enqueue(db, patientId, ENTITY_LOG, log.id, Json.log(log.copy(status = DoseStatus.SKIPPED, updatedAt = now)))
+            }
+        }
     }
 
     /** علبة جديدة: يضيف العدد إلى المخزون */

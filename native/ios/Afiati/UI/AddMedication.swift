@@ -39,6 +39,8 @@ private func defaultTimes(_ count: Int) -> [String] {
  */
 struct AddMedicationScreen: View {
     let onClose: () -> Void
+    /// الدواء الذي يُعدَّل، أو nil للإضافة
+    let editing: Medication?
     @EnvironmentObject private var model: AppModel
     @State private var step = 1
     @State private var name = ""
@@ -57,7 +59,31 @@ struct AddMedicationScreen: View {
     @State private var duplicateOf: String?
     @State private var confirmClose = false
 
-    private var dirty: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty || step > 1 }
+    init(onClose: @escaping () -> Void, editing: Medication? = nil) {
+        self.onClose = onClose
+        self.editing = editing
+        guard let medication = editing else { return }
+        // التعديل يبدأ من صفحة البيانات: يرى كل شيء ويضغط «تعديل» بجانب ما يريد تغييره
+        _step = State(initialValue: steps)
+        _name = State(initialValue: medication.name)
+        _dose = State(initialValue: medication.doseAmount)
+        _unit = State(initialValue: units.contains(medication.doseUnit) ? medication.doseUnit : "حبة")
+        _repeatType = State(initialValue: medication.repeatType)
+        let count = medication.repeatType == RepeatType.daily ? medication.times.count : medication.repeatDays.count
+        _frequency = State(initialValue: min(max(count, 1), maxFrequency))
+        _times = State(initialValue: medication.times.isEmpty ? ["08:00"] : medication.times)
+        _days = State(initialValue: medication.repeatDays)
+        _trackStock = State(initialValue: medication.stockCount != nil)
+        _stock = State(initialValue: medication.stockCount ?? 30)
+    }
+
+    private var dirty: Bool {
+        guard let medication = editing else { return !name.trimmingCharacters(in: .whitespaces).isEmpty || step > 1 }
+        let value = draft()
+        return value.name != medication.name || value.doseAmount != medication.doseAmount || value.doseUnit != medication.doseUnit ||
+            value.repeatType != medication.repeatType || value.repeatDays != medication.repeatDays.sorted() ||
+            value.times != Schedule.timesFor(medication.repeatType, medication.times) || value.stockCount != medication.stockCount
+    }
 
     private func selectRepeat(_ type: String) {
         repeatType = type
@@ -98,6 +124,11 @@ struct AddMedicationScreen: View {
 
     private func save(force: Bool = false) {
         let value = draft()
+        if let medication = editing {
+            model.editMedication(medication, value)
+            onClose()
+            return
+        }
         if !force, let duplicate = model.findDuplicate(value) {
             duplicateOf = duplicate.name
             return
@@ -108,6 +139,18 @@ struct AddMedicationScreen: View {
 
     private func daysText() -> String {
         frequency == 1 ? tr("يومًا واحدًا", "one day") : tr("\(frequency) أيام", "\(frequency) days")
+    }
+
+    /// في التعديل: «تم» تعود إلى صفحة البيانات، وبعد تغيير التكرار يختار الأيام أو الأوقات أولًا
+    private func doneEditingStep() {
+        if step == 1 && name.trimmingCharacters(in: .whitespaces).isEmpty {
+            error = tr("اكتب اسم الدواء.", "Type the medicine name.")
+        } else if step == 4 && repeatType != RepeatType.daily && days.count != frequency {
+            error = tr("اختر \(daysText()).", "Choose \(daysText()).")
+        } else {
+            error = nil
+            withAnimation { step = step == 3 ? 4 : steps }
+        }
     }
 
     private func next() {
@@ -128,8 +171,10 @@ struct AddMedicationScreen: View {
             HStack(spacing: 12) {
                 CircleIconButton(icon: "xmark", label: tr("إغلاق", "Close")) { if dirty { confirmClose = true } else { onClose() } }
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(tr("إضافة دواء", "Add medicine")).style(22, .bold)
-                    Text(tr("الخطوة \(step) من \(steps)", "Step \(step) of \(steps)")).style(15, .regular, Brand.secondaryText)
+                    Text(editing != nil ? tr("تعديل الدواء", "Edit medicine") : tr("إضافة دواء", "Add medicine")).style(22, .bold)
+                    Text(editing == nil ? tr("الخطوة \(step) من \(steps)", "Step \(step) of \(steps)")
+                         : step == steps ? tr("اضغط «تعديل» بجانب ما تريد تغييره", "Tap “Edit” next to what you want to change")
+                         : tr("عدّل ثم اضغط «تم»", "Change it, then tap “Done”")).style(15, .regular, Brand.secondaryText)
                 }
                 Spacer()
             }
@@ -159,9 +204,15 @@ struct AddMedicationScreen: View {
 
             // الأسفل: التالي والسابق
             HStack(spacing: 10) {
-                PrimaryButton(step == steps ? tr("حفظ الدواء", "Save medicine") : tr("التالي", "Next"),
-                              icon: step == steps ? "checkmark" : "arrow.forward") { next() }
-                if step > 1 {
+                if editing != nil {
+                    PrimaryButton(step == steps ? tr("حفظ التعديلات", "Save changes") : tr("تم", "Done"), icon: "checkmark", enabled: step != steps || dirty) {
+                        if step == steps { next() } else { doneEditingStep() }
+                    }
+                } else {
+                    PrimaryButton(step == steps ? tr("حفظ الدواء", "Save medicine") : tr("التالي", "Next"),
+                                  icon: step == steps ? "checkmark" : "arrow.forward") { next() }
+                }
+                if editing == nil && step > 1 {
                     GlassButton(tr("السابق", "Back"), icon: "arrow.backward") { error = nil; withAnimation { step -= 1 } }
                 }
             }
@@ -188,9 +239,9 @@ struct AddMedicationScreen: View {
                 )
             } else if confirmClose {
                 AfiatiDialog(
-                    title: tr("إلغاء إضافة الدواء؟", "Cancel adding this medicine?"),
-                    text: tr("لن يُحفظ ما كتبته.", "What you typed won't be saved."),
-                    confirm: tr("إلغاء الإضافة", "Discard"), destructive: true, dismiss: tr("متابعة", "Keep editing"),
+                    title: editing != nil ? tr("تجاهل التعديلات؟", "Discard changes?") : tr("إلغاء إضافة الدواء؟", "Cancel adding this medicine?"),
+                    text: editing != nil ? tr("يبقى الدواء كما كان.", "The medicine stays as it was.") : tr("لن يُحفظ ما كتبته.", "What you typed won't be saved."),
+                    confirm: editing != nil ? tr("تجاهل", "Discard") : tr("إلغاء الإضافة", "Discard"), destructive: true, dismiss: tr("متابعة", "Keep editing"),
                     onConfirm: { confirmClose = false; onClose() }, onDismiss: { confirmClose = false }
                 )
             }
@@ -285,10 +336,19 @@ struct AddMedicationScreen: View {
             }
         default:
             let value = draft()
-            StepTitle(title: tr("تأكد من البيانات", "Check the details"), message: tr("اضغط «حفظ الدواء» إذا كان كل شيء صحيحًا.", "Tap “Save medicine” if everything is right."))
+            if editing != nil {
+                StepTitle(title: tr("بيانات الدواء", "Medicine details"), message: tr("ما سجّلته من جرعاته يبقى في السجل.", "The doses you already logged stay in your history."))
+            } else {
+                StepTitle(title: tr("تأكد من البيانات", "Check the details"), message: tr("اضغط «حفظ الدواء» إذا كان كل شيء صحيحًا.", "Tap “Save medicine” if everything is right."))
+            }
             Card {
-                Text(value.name).style(28, .bold)
-                Text(Format.dose(value.doseAmount, value.doseUnit)).style(19, .regular, Brand.secondaryText)
+                if editing != nil {
+                    ReviewLine(icon: "pills.fill", text: value.name) { step = 1 }
+                    ReviewLine(icon: "scalemass", text: Format.dose(value.doseAmount, value.doseUnit)) { step = 2 }
+                } else {
+                    Text(value.name).style(28, .bold)
+                    Text(Format.dose(value.doseAmount, value.doseUnit)).style(19, .regular, Brand.secondaryText)
+                }
                 ReviewLine(icon: "clock", text: Format.schedule(value.repeatType, value.repeatDays, value.times)) { step = 4 }
                 ReviewLine(icon: "calendar", text: "\(Format.repeatTitle(value.repeatType)) · \(Format.times(value.frequency))") { step = 3 }
                 ReviewLine(icon: "checkmark", text: value.stockCount.map { tr("المخزون: \($0)", "Stock: \($0)") } ?? tr("بدون متابعة المخزون", "Without stock tracking")) { step = 5 }

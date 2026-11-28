@@ -175,7 +175,8 @@ enum MedicationRepository {
             """
             SELECT logs.*, m.name AS medication_name, m.dose_amount AS medication_dose_amount, m.dose_unit AS medication_dose_unit
             FROM medication_logs_local logs JOIN medications_local m ON m.id = logs.medication_id
-            WHERE logs.patient_id = ? AND logs.scheduled_at >= ? AND logs.scheduled_at < ?
+            WHERE logs.patient_id = ? AND logs.scheduled_at >= ? AND logs.scheduled_at < ? AND logs.status != 'skipped'
+              AND NOT (m.is_active = 0 AND logs.status = 'pending' AND logs.scheduled_at > COALESCE(m.deleted_at, ''))
             ORDER BY logs.scheduled_at ASC
             """,
             [patientId, from, to]
@@ -183,9 +184,9 @@ enum MedicationRepository {
         return rows.map(log)
     }
 
-    /// هل سُجّلت هذه الجرعة مأخوذة؟ (قبل إظهار تذكيرها)
+    /// هل سُجّلت هذه الجرعة مأخوذة، أو أُلغيت بتعديل المواعيد؟ (فلا يُجدول تذكيرها)
     static func isTaken(_ medicationId: String, _ scheduledAt: String) -> Bool {
-        ((try? db.query("SELECT 1 AS x FROM medication_logs_local WHERE medication_id = ? AND scheduled_at = ? AND status = 'taken'",
+        ((try? db.query("SELECT 1 AS x FROM medication_logs_local WHERE medication_id = ? AND scheduled_at = ? AND status IN ('taken', 'skipped')",
                         [medicationId, scheduledAt])) ?? []).isEmpty == false
     }
 
@@ -269,6 +270,83 @@ enum MedicationRepository {
         return true
     }
 
+    /**
+     تراجع عن جرعة سُجّلت بالخطأ: تعود «منتظرة» ويعود المخزون حبة.
+     الخادم لا يُرجع جرعة مأخوذة إلا بهذه الإشارة الصريحة (undo_taken).
+     */
+    static func untake(_ patientId: String, _ logId: String) -> Bool {
+        (try? db.transaction { () -> Bool in
+            let now = Iso.now()
+            let changed = try db.run("UPDATE medication_logs_local SET status = 'pending', taken_at = NULL, updated_at = ? WHERE id = ? AND status = 'taken'", [now, logId])
+            guard changed > 0, let row = try db.query("SELECT * FROM medication_logs_local WHERE id = ?", [logId]).first else { return false }
+            let entry = log(row)
+            try db.run(
+                "UPDATE medications_local SET stock_count = CASE WHEN stock_count IS NULL THEN NULL ELSE stock_count + 1 END, updated_at = ? WHERE id = ?",
+                [now, entry.medicationId]
+            )
+            var payload = Json.log(entry)
+            payload["undo_taken"] = true
+            try Outbox.enqueue(patientId, entityLog, entry.id, payload)
+            if let medication = find(entry.medicationId) {
+                try Outbox.enqueue(patientId, entityMedication, medication.id, Json.medication(medication))
+            }
+            return true
+        }) ?? false
+    }
+
+    /**
+     تعديل دواء: الاسم والجرعة والمواعيد والمخزون. ما سُجّل منه يبقى في السجل.
+     إن تغيّرت المواعيد: جرعات اليوم وما بعده التي لم تؤخذ وليست في الجدول الجديد تُلغى (skipped)،
+     ومواعيد اليوم الجديدة التي فات وقتها لا تُحسب، فلا تظهر متأخرة.
+     */
+    @discardableResult
+    static func edit(_ patientId: String, _ medicationId: String, _ draft: MedicationDraft) -> Bool {
+        (try? db.transaction { () -> Bool in
+            guard let current = find(medicationId) else { return false }
+            let now = Iso.now()
+            var updated = current
+            updated.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            updated.doseAmount = draft.doseAmount
+            updated.doseUnit = draft.doseUnit
+            updated.repeatType = draft.repeatType
+            updated.repeatDays = draft.repeatDays
+            updated.frequency = draft.frequency
+            updated.times = draft.times
+            updated.stockCount = draft.stockCount
+            updated.updatedAt = now
+            try update(updated)
+            try Outbox.enqueue(patientId, entityMedication, updated.id, Json.medication(updated))
+            let scheduleChanged = current.repeatType != updated.repeatType || current.repeatDays.sorted() != updated.repeatDays.sorted() ||
+                Schedule.timesFor(current.repeatType, current.times) != Schedule.timesFor(updated.repeatType, updated.times)
+            if !scheduleChanged { return true }
+            let today = Day.today()
+            func planned(_ day: Day) -> [String] {
+                guard Schedule.isScheduled(updated.repeatType, updated.repeatDays, on: day) else { return [] }
+                return Schedule.timesFor(updated.repeatType, updated.times).compactMap { Schedule.scheduledAt(day, $0) }
+            }
+            let keep = Set(planned(today) + planned(today.adding(days: 1)))
+            let from = Schedule.dayRange(today).0
+            let pending = try db.query("SELECT * FROM medication_logs_local WHERE medication_id = ? AND status = 'pending' AND scheduled_at >= ?", [medicationId, from]).map(log)
+            for entry in pending where !keep.contains(entry.scheduledAt) {
+                try db.run("UPDATE medication_logs_local SET status = 'skipped', updated_at = ? WHERE id = ?", [now, entry.id])
+                var skipped = entry
+                skipped.status = DoseStatus.skipped
+                skipped.updatedAt = now
+                try Outbox.enqueue(patientId, entityLog, skipped.id, Json.log(skipped))
+            }
+            for scheduledAt in planned(today) where scheduledAt <= now {
+                let skipped = DoseLog(id: Ids.doseLogId(medicationId, scheduledAt), medicationId: medicationId, patientId: patientId,
+                                      scheduledAt: scheduledAt, takenAt: nil, status: DoseStatus.skipped, createdAt: now, updatedAt: now)
+                let inserted = try db.run(
+                    "INSERT OR IGNORE INTO medication_logs_local (id, medication_id, patient_id, scheduled_at, taken_at, status, created_at, updated_at) VALUES (?, ?, ?, ?, NULL, ?, ?, ?)",
+                    [skipped.id, medicationId, patientId, scheduledAt, skipped.status, now, now]
+                )
+                if inserted > 0 { try Outbox.enqueue(patientId, entityLog, skipped.id, Json.log(skipped)) }
+            }
+            return true
+        }) ?? false
+    }
+
     /// تسجيل من الإشعار: ينشئ الجرعة إن لم تكن موجودة ثم يسجّلها مأخوذة
     static func markTaken(_ patientId: String, medicationId: String, scheduledAt: String) -> Bool {
         (try? db.transaction { () -> Bool in
@@ -280,11 +358,22 @@ enum MedicationRepository {
 
     /// إيقاف الدواء: يختفي من القوائم والتذكيرات ويبقى في السجل
     static func deactivate(_ patientId: String, _ medicationId: String) {
+        let now = Iso.now()
         updateMedication(patientId, medicationId) {
-            let now = Iso.now()
             $0.isActive = false
             $0.deletedAt = now
             $0.updatedAt = now
+        }
+        // جرعاته القادمة التي لم تؤخذ تُلغى، فلا تظهر في «جرعات اليوم» ولا عند العائلة
+        _ = try? db.transaction {
+            let pending = try db.query("SELECT * FROM medication_logs_local WHERE medication_id = ? AND status = 'pending' AND scheduled_at > ?", [medicationId, now]).map(log)
+            for entry in pending {
+                try db.run("UPDATE medication_logs_local SET status = 'skipped', updated_at = ? WHERE id = ?", [now, entry.id])
+                var skipped = entry
+                skipped.status = DoseStatus.skipped
+                skipped.updatedAt = now
+                try Outbox.enqueue(patientId, entityLog, skipped.id, Json.log(skipped))
+            }
         }
     }
 

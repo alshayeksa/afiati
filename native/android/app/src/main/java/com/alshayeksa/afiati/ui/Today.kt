@@ -114,6 +114,7 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
     val logs = AppModel.todayLogs
     val medications = AppModel.medications
     var confirmEarly by remember { mutableStateOf<DoseLog?>(null) }
+    var confirmUntake by remember { mutableStateOf<DoseLog?>(null) }
     val take: (DoseLog) -> Unit = { log -> if (AppModel.isEarly(log, now)) confirmEarly = log else AppModel.takeDose(log) }
 
     TabList(header) {
@@ -152,9 +153,11 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
                 }
             }
             items(group, key = { "dose-" + it.id }) { log ->
-                DoseRow(log, doseState(log, now, AppModel.isTaken(log)), onTake = { take(log) }) {
-                    medications.firstOrNull { it.id == log.medicationId }?.let(onOpenMedication)
-                }
+                // هنا يسجّل الجرعة فقط؛ تفاصيل الدواء وتعديله في «أدويتي». الضغط على ✓ المضيئة يتراجع عن التسجيل
+                DoseRow(
+                    log, doseState(log, now, AppModel.isTaken(log)), onTake = { take(log) },
+                    onUntake = { if (AppModel.pendingTake?.id == log.id) AppModel.undoTake() else confirmUntake = log },
+                )
             }
         }
 
@@ -165,6 +168,14 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
         item(key = "progress") { ProgressCard(logs, now) }
     }
 
+    confirmUntake?.let { log ->
+        AfiatiDialog(
+            title = tr("لم تأخذ ${log.medicationName}؟", "Didn't take ${log.medicationName}?"),
+            text = tr("سنلغي تسجيل هذه الجرعة ونعيدها كما كانت. تستطيع تسجيلها من جديد حين تأخذها.", "We'll unmark this dose and put it back as it was. You can mark it again when you take it."),
+            confirm = tr("نعم، لم آخذها", "Yes, I didn't take it"), onConfirm = { AppModel.untakeDose(log); confirmUntake = null },
+            dismiss = tr("لا، أخذتها", "No, I took it"), onDismiss = { confirmUntake = null },
+        )
+    }
     confirmEarly?.let { log ->
         AfiatiDialog(
             title = tr("موعدها لم يحن بعد", "It's not time yet"),
@@ -291,7 +302,7 @@ private fun LowStockCard(medication: Medication, onOpen: () -> Unit) {
 
 /** بطاقة جرعة: الدواء والوقت والحالة، وزر تسجيل كبير */
 @Composable
-fun DoseRow(log: DoseLog, state: DoseState, onTake: (() -> Unit)?, onClick: () -> Unit) {
+fun DoseRow(log: DoseLog, state: DoseState, onTake: (() -> Unit)?, onUntake: (() -> Unit)? = null) {
     val (stateText, stateColor) = when (state) {
         DoseState.TAKEN -> (log.takenAt?.let { tr("أُخذت ${Format.isoTime(it)}", "Taken ${Format.isoTime(it)}") } ?: tr("أُخذت", "Taken")) to Brand.glow
         DoseState.DUE -> tr("موعدها الآن", "Due now") to Brand.glow
@@ -304,7 +315,6 @@ fun DoseRow(log: DoseLog, state: DoseState, onTake: (() -> Unit)?, onClick: () -
     Row(
         Modifier.padding(horizontal = 14.dp).padding(bottom = 10.dp).fillMaxWidth()
             .glass(RoundedCornerShape(24.dp), if (state == DoseState.DUE) 0.5f else 0.22f)
-            .clickable(onClickLabel = tr("تفاصيل ${log.medicationName}", "Details of ${log.medicationName}"), onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -327,16 +337,19 @@ fun DoseRow(log: DoseLog, state: DoseState, onTake: (() -> Unit)?, onClick: () -
             }
         }
         Spacer(Modifier.width(8.dp))
-        CheckButton(taken, log.medicationName, onTake)
+        CheckButton(taken, log.medicationName, onTake, onUntake)
     }
 }
 
 @Composable
-private fun CheckButton(taken: Boolean, name: String, onTake: (() -> Unit)?) {
+private fun CheckButton(taken: Boolean, name: String, onTake: (() -> Unit)?, onUntake: (() -> Unit)? = null) {
     if (taken) {
         Box(
             Modifier.size(54.dp).shadow(10.dp, CircleShape, ambientColor = Brand.glow, spotColor = Brand.glow).clip(CircleShape)
-                .background(Brush.verticalGradient(listOf(Brand.glow, Brand.mint))).semantics { contentDescription = tr("أُخذت", "Taken") },
+                .background(Brush.verticalGradient(listOf(Brand.glow, Brand.mint)))
+                // أخطأ وسجّلها؟ يضغط عليها فيتراجع
+                .then(if (onUntake != null) Modifier.clickable(role = Role.Button, onClickLabel = tr("لم آخذ $name", "I didn't take $name"), onClick = onUntake) else Modifier)
+                .semantics { contentDescription = tr("أُخذت", "Taken") },
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Filled.Check, null, tint = Brand.ink, modifier = Modifier.size(30.dp)) }
     } else if (onTake != null) {

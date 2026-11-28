@@ -317,6 +317,19 @@ object AppModel {
         }
     }
 
+    fun editMedication(medication: Medication, draft: MedicationDraft) {
+        val id = patient?.id ?: return
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                MedicationRepository.edit(id, medication.id, draft)
+                Reminders.checkStock(app, id, medication.id)
+            }
+            reload()
+            afterChange(sync = true)
+            toast = tr("حُفظت تعديلات ${draft.name}", "${draft.name} changes saved")
+        }
+    }
+
     fun stopMedication(medication: Medication) {
         val id = patient?.id ?: return
         scope.launch {
@@ -375,6 +388,22 @@ object AppModel {
             app.getSystemService(android.app.NotificationManager::class.java)?.cancel(Reminders.notificationId(log.medicationId, log.scheduledAt))
             reload()
             afterChange(sync = true, reminders = false)
+        }
+    }
+
+    /** «لم آخذها»: تراجع عن جرعة سُجّلت بالخطأ، في أي وقت */
+    fun untakeDose(log: DoseLog) {
+        if (pendingTake?.id == log.id) return undoTake()
+        val id = patient?.id ?: return
+        scope.launch {
+            val changed = withContext(Dispatchers.IO) {
+                MedicationRepository.untake(id, log.id).also { if (it) Reminders.checkStock(app, id, log.medicationId) }
+            }
+            reload()
+            if (changed) {
+                afterChange(sync = true)
+                toast = tr("أُلغي تسجيل جرعة ${log.medicationName}", "${log.medicationName} dose unmarked")
+            }
         }
     }
 

@@ -84,6 +84,18 @@ struct TodayScreen: View {
         }
     }
 
+    private func untake(_ log: DoseLog) {
+        if model.pendingTake?.id == log.id { return model.undoTake() }
+        model.present(AfiatiDialog(
+            title: tr("لم تأخذ \(log.medicationName)؟", "Didn't take \(log.medicationName)?"),
+            text: tr("سنلغي تسجيل هذه الجرعة ونعيدها كما كانت. تستطيع تسجيلها من جديد حين تأخذها.",
+                     "We'll unmark this dose and put it back as it was. You can mark it again when you take it."),
+            confirm: tr("نعم، لم آخذها", "Yes, I didn't take it"), dismiss: tr("لا، أخذتها", "No, I took it"),
+            onConfirm: { model.dismissDialog(); model.untakeDose(log) },
+            onDismiss: { model.dismissDialog() }
+        ))
+    }
+
     var body: some View {
         let logs = model.todayLogs
         let medications = model.medications
@@ -121,9 +133,8 @@ struct TodayScreen: View {
                         .padding(.top, 4)
                         .padding(.bottom, 8)
                         ForEach(group) { log in
-                            DoseRow(log: log, state: doseState(log, now: now, takenOverride: model.isTaken(log)), onTake: { take(log) }) {
-                                if let medication = medications.first(where: { $0.id == log.medicationId }) { onOpenMedication(medication) }
-                            }
+                            // هنا يسجّل الجرعة فقط؛ تفاصيل الدواء وتعديله في «أدويتي». الضغط على ✓ المضيئة يتراجع عن التسجيل
+                            DoseRow(log: log, state: doseState(log, now: now, takenOverride: model.isTaken(log)), onTake: { take(log) }, onUntake: { untake(log) })
                         }
                     }
                 }
@@ -287,13 +298,13 @@ struct DoseRow: View {
     let log: DoseLog
     let state: DoseState
     let onTake: (() -> Void)?
-    let onClick: () -> Void
+    var onUntake: (() -> Void)?
 
     var body: some View {
         let time = Format.isoTime(log.scheduledAt)
         let parts = time.split(separator: " ", maxSplits: 1).map(String.init)
         let taken = state == .taken
-        Button(action: onClick) {
+        VStack(spacing: 0) {
             HStack(spacing: 0) {
                 VStack(spacing: 0) {
                     Text(parts.first ?? time).style(21, .bold, taken ? Brand.secondaryText : Brand.text)
@@ -313,17 +324,14 @@ struct DoseRow: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                CheckButton(taken: taken, name: log.medicationName, onTake: onTake).padding(.leading, 8)
+                CheckButton(taken: taken, name: log.medicationName, onTake: onTake, onUntake: onUntake).padding(.leading, 8)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .glass(radius: 24, highlight: state == .due ? 0.5 : 0.22)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(PressStyle())
         .padding(.horizontal, 14)
         .padding(.bottom, 10)
-        .accessibilityHint(tr("تفاصيل \(log.medicationName)", "Details of \(log.medicationName)"))
     }
 
     private var stateText: String {
@@ -346,16 +354,26 @@ private struct CheckButton: View {
     let taken: Bool
     let name: String
     let onTake: (() -> Void)?
+    var onUntake: (() -> Void)?
+
+    private var takenMark: some View {
+        Image(systemName: "checkmark")
+            .font(.system(size: 24, weight: .bold))
+            .foregroundColor(Brand.ink)
+            .frame(width: 54, height: 54)
+            .background(LinearGradient(colors: [Brand.glow, Brand.mint], startPoint: .top, endPoint: .bottom), in: Circle())
+            .shadow(color: Brand.glow.opacity(0.4), radius: 8)
+            .accessibilityLabel(tr("أُخذت", "Taken"))
+    }
 
     var body: some View {
-        if taken {
-            Image(systemName: "checkmark")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundColor(Brand.ink)
-                .frame(width: 54, height: 54)
-                .background(LinearGradient(colors: [Brand.glow, Brand.mint], startPoint: .top, endPoint: .bottom), in: Circle())
-                .shadow(color: Brand.glow.opacity(0.4), radius: 8)
-                .accessibilityLabel(tr("أُخذت", "Taken"))
+        if taken, let onUntake = onUntake {
+            // أخطأ وسجّلها؟ يضغط عليها فيتراجع
+            Button(action: onUntake) { takenMark }
+                .buttonStyle(PressStyle())
+                .accessibilityHint(tr("لم آخذ \(name)", "I didn't take \(name)"))
+        } else if taken {
+            takenMark
         } else if let onTake = onTake {
             Button(action: onTake) {
                 Image(systemName: "checkmark")

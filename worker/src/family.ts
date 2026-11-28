@@ -168,7 +168,10 @@ export async function patientDay(request: Request, env: Env, auth: AuthContext, 
 
   const { results: logs } = await env.DB.prepare(
     `SELECT id, medication_id, patient_id, scheduled_at, taken_at, status, created_at, updated_at
-     FROM medication_logs WHERE patient_id = ? AND scheduled_at >= ? AND scheduled_at < ? ORDER BY scheduled_at`,
+     FROM medication_logs WHERE patient_id = ? AND scheduled_at >= ? AND scheduled_at < ? AND status <> 'skipped'
+       AND NOT EXISTS (SELECT 1 FROM medications m WHERE m.id = medication_logs.medication_id AND m.is_active = 0
+                       AND medication_logs.status = 'pending' AND medication_logs.scheduled_at > COALESCE(m.deleted_at, ''))
+     ORDER BY scheduled_at`,
   )
     .bind(patientId, new Date(fromMs).toISOString(), new Date(toMs).toISOString())
     .all();

@@ -511,7 +511,7 @@ fun PatientScreen(link: FamilyLink, onClose: () -> Unit) {
                     }
                     items(logs, key = { "p-" + it.id }) { log ->
                         val shown = if (current.privacyLevel == Privacy.STATUS_ONLY || log.medicationName.isEmpty()) log.copy(medicationName = tr("جرعة دواء", "Medicine dose")) else log
-                        DoseRow(shown, doseState(log, now), onTake = null) {}
+                        DoseRow(shown, doseState(log, now), onTake = null)
                     }
                 }
             }

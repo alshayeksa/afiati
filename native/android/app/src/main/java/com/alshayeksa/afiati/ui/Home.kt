@@ -115,6 +115,7 @@ fun HomeScreen() {
     var showPulse by rememberSaveable { mutableStateOf(false) }
     var showVitals by rememberSaveable { mutableStateOf(false) }
     var openMedication by remember { mutableStateOf<Medication?>(null) }
+    var editMedication by remember { mutableStateOf<Medication?>(null) }
     var openPatient by remember { mutableStateOf<FamilyLink?>(null) }
 
     // ضغطة على إشعار من العائلة
@@ -164,7 +165,7 @@ fun HomeScreen() {
             if (ticks % 8 == 0) com.alshayeksa.afiati.sync.AppControl.refresh()
         }
     }
-    BackHandler(enabled = tab != Tab.TODAY && !showAdd && !showHelp && !showPulse && !showVitals && openPatient == null) { tab = Tab.TODAY }
+    BackHandler(enabled = tab != Tab.TODAY && !showAdd && editMedication == null && !showHelp && !showPulse && !showVitals && openPatient == null) { tab = Tab.TODAY }
 
     val header: @Composable () -> Unit = {
         TopBar(onProfile = { showProfile = true }, onNotifications = { showNotifications = true }, onAbout = { showAbout = true }, onSettings = { showSettings = true })
@@ -192,6 +193,9 @@ fun HomeScreen() {
         if (showAdd) {
             AddMedicationScreen(onClose = { showAdd = false })
         }
+        editMedication?.let { medication ->
+            AddMedicationScreen(onClose = { editMedication = null }, editing = medication)
+        }
         if (showVitals) {
             VitalsScreen(onClose = { showVitals = false }, onPulse = { showPulse = true })
         }
@@ -204,13 +208,13 @@ fun HomeScreen() {
         UndoBar(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 92.dp))
     }
 
-    if (!showAdd && !showHelp && !showPulse && !showVitals && openPatient == null) {
+    if (!showAdd && editMedication == null && !showHelp && !showPulse && !showVitals && openPatient == null) {
         when {
             showProfile -> ProfileSheet(onDismiss = { showProfile = false })
             showSettings -> SettingsSheet(onDismiss = { showSettings = false })
             showNotifications -> NotificationsSheet(onDismiss = { showNotifications = false })
             showAbout -> AboutSheet(onDismiss = { showAbout = false })
-            openMedication != null -> MedicationSheet(openMedication!!, onDismiss = { openMedication = null })
+            openMedication != null -> MedicationSheet(openMedication!!, onDismiss = { openMedication = null }, onEdit = { openMedication = null; editMedication = it })
         }
     }
 }

@@ -267,7 +267,7 @@ class ReminderReceiver : BroadcastReceiver() {
     private fun alreadyTaken(context: Context, medicationId: String, scheduledAt: String): Boolean {
         Db.init(context)
         return Db.db.rawQuery(
-            "SELECT 1 FROM medication_logs_local WHERE medication_id = ? AND scheduled_at = ? AND status = 'taken'",
+            "SELECT 1 FROM medication_logs_local WHERE medication_id = ? AND scheduled_at = ? AND status IN ('taken', 'skipped')",
             arrayOf(medicationId, scheduledAt),
         ).use { it.moveToFirst() }
     }

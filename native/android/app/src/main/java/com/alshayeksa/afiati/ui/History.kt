@@ -92,7 +92,7 @@ fun HistoryScreen(header: @Composable () -> Unit) {
             items(selectedLogs, key = { "h-" + it.id }) { log ->
                 val state = if (selected == today) doseState(log, now, AppModel.isTaken(log))
                 else if (log.status == "taken") DoseState.TAKEN else DoseState.MISSED
-                DoseRow(log, state, onTake = null) {}
+                DoseRow(log, state, onTake = null)
             }
         }
     }

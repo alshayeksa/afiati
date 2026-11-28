@@ -392,3 +392,21 @@ Manual entry is currently faster and more reliable for the target flow.
 - Local: control 23/23 (Access refused without a token, or with a forged, expired or wrong-audience one; a cross-site save is refused; the service switch; forced update with and without enforcement; builds without headers).
 - Production: `/v1/app-config` answers. `/forceupdate` returns 403 without Access. Sync and family regression all passed. Test accounts removed.
 - Android unit tests and build passed; installed on the Samsung (data kept).
+
+## 2026-11-28 - Edit a medicine, undo a dose, heart in the pulse wave, «I'm coming» sound
+
+### Change
+- Edit a medicine (Android and iOS): «Edit medicine» in the medicine sheet opens the wizard on a details page with an «Edit» link per line (name, dose, times, repeat, stock).
+  - When the schedule changes, untaken doses from today on that are not in the new schedule become `skipped`, and new times already past today are recorded as `skipped` so they do not show as late.
+  - `skipped` doses are hidden in the apps and in the family view.
+- Today: tapping a dose no longer opens the medicine details; the row only marks the dose.
+- Undo a dose: tapping the lit check asks «Didn't take it?» and puts the dose back to pending (stock +1).
+  - Server: a `taken` dose still never reverts, except through the explicit `undo_taken` flag from the user's own phone, when newer than the stored row.
+- Fixed: stopping a medicine left its future pending doses visible. Stopping now marks them `skipped`, and doses already stuck this way are filtered out (apps and family view).
+- Pulse wave: a beating heart in the middle; the wave passes through it.
+- «I'm coming» reaches the elder with a crystal chime (synthesized here) on its own channel `help-coming` instead of the alarm sound. iOS: `coming.wav` named in the APNs payload.
+
+### Verification
+- Local worker: undo 7/7 (plain pending cannot undo, stale undo ignored, explicit undo applies, retake works, skipped hidden from family), sync regression passed.
+- Android unit tests and build passed. On the Samsung: the heart wave, the edit screen opens prefilled, tapping a dose row opens nothing, the stuck dose of a stopped medicine disappeared.
+- Not yet verified on a device: saving an edit and undoing a dose (not done on the owner's real data), and the chime on a real «I'm coming».

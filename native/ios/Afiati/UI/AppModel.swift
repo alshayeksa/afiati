@@ -274,6 +274,15 @@ final class AppModel: ObservableObject {
         toast = tr("أُضيف \(draft.name) وستصلك تذكيراته", "\(draft.name) added; you'll get its reminders")
     }
 
+    func editMedication(_ medication: Medication, _ draft: MedicationDraft) {
+        guard let id = patient?.id else { return }
+        MedicationRepository.edit(id, medication.id, draft)
+        Reminders.checkStock(patientId: id, medicationId: medication.id)
+        reload()
+        afterChange(sync: true)
+        toast = tr("حُفظت تعديلات \(draft.name)", "\(draft.name) changes saved")
+    }
+
     func stopMedication(_ medication: Medication) {
         guard let id = patient?.id else { return }
         MedicationRepository.deactivate(id, medication.id)
@@ -322,6 +331,19 @@ final class AppModel: ObservableObject {
         Reminders.clear(medicationId: log.medicationId, scheduledAt: log.scheduledAt)
         reload()
         afterChange(sync: true)
+    }
+
+    /// «لم آخذها»: تراجع عن جرعة سُجّلت بالخطأ، في أي وقت
+    func untakeDose(_ log: DoseLog) {
+        if pendingTake?.id == log.id { return undoTake() }
+        guard let id = patient?.id else { return }
+        let changed = MedicationRepository.untake(id, log.id)
+        if changed { Reminders.checkStock(patientId: id, medicationId: log.medicationId) }
+        reload()
+        if changed {
+            afterChange(sync: true)
+            toast = tr("أُلغي تسجيل جرعة \(log.medicationName)", "\(log.medicationName) dose unmarked")
+        }
     }
 
     /// هل الجرعة بعيدة عن موعدها (أكثر من ساعة قبله)؟ نسأل قبل تسجيلها
