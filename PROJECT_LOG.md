@@ -487,3 +487,17 @@ Manual entry is currently faster and more reliable for the target flow.
 - Android build passed, with the production URL in the APK.
 - Site pages render on desktop and mobile widths.
 - Not deployed yet. iOS builds on CI.
+
+## 2026-11-28 - App Store screenshots and store listing
+
+### Change
+- `.github/workflows/ios-screenshots.yml` (manual) produces real iPhone screenshots:
+  - It starts a local server on the Mac and creates demo families with `native/ios/Screenshots/seed.mjs`.
+  - `AfiatiUITests` then walks the app on the largest iPhone simulator (1320x2868, 6.9-inch) in Arabic and English.
+  - The demo sign-in (`DemoLaunch.swift`) and the local http server are Debug-only. Release builds are unchanged, apart from `NSAllowsLocalNetworking`.
+- `store/render_frames.py` adds a caption above each screenshot. Output is in `store/screenshots/{ar,en}`, with the raw captures in `store/screenshots/raw`.
+- `store/listing.md` holds the App Store and Google Play text, App Privacy and Data safety answers, and the review notes. `store/check_listing.py` checks the character limits.
+
+### Verification
+- The workflow run 46118430979 captured all 12 screens (no real data).
+- Field limits: all within.
