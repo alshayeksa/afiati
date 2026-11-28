@@ -345,7 +345,8 @@ fun DoseRow(log: DoseLog, state: DoseState, onTake: (() -> Unit)?, onUntake: (()
                 Text(Format.dose(log.doseAmount, log.doseUnit), style = tajawal(15, color = Brand.secondaryText), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 // تهنئة صغيرة مميزة داخل مربع الدواء نفسه
                 Text(
-                    tr("أحسنت · أخذتها", "Well done · taken") + (log.takenAt?.let { " " + Format.isoTime(it) } ?: ""),
+                    // في عرض العائلة (بلا زر تسجيل) لا نهنّئ المتابع، بل نذكر وقت أخذها
+                    (if (onTake == null) tr("أُخذت", "Taken") else tr("أحسنت · أخذتها", "Well done · taken")) + (log.takenAt?.let { " " + Format.isoTime(it) } ?: ""),
                     style = tajawal(13, FontWeight.Bold, Brand.mint), maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             } else {

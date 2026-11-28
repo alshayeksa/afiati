@@ -155,9 +155,68 @@ struct SettingsSheet: View {
 
                 FieldLabel(tr("المزامنة", "Sync")).padding(.top, 10)
                 SyncCard()
+
+                FieldLabel(tr("الحساب", "Account")).padding(.top, 10)
+                DeleteAccountRow(onDeleted: onDismiss)
             }
         }
         .task { await model.refreshNotificationStatus() }
+    }
+}
+
+/// حذف الحساب وكل البيانات من الخادم والجوال، بعد تأكيد. يشترطه متجرا Apple وGoogle.
+private struct DeleteAccountRow: View {
+    let onDeleted: () -> Void
+    @EnvironmentObject private var model: AppModel
+    @State private var working = false
+
+    var body: some View {
+        Button { model.present(DeleteAccountDialog(working: $working, onDeleted: onDeleted)) } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "trash.fill").font(.system(size: 20)).foregroundColor(Brand.danger)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(working ? tr("جارٍ الحذف…", "Deleting…") : tr("حذف حسابي وبياناتي", "Delete my account and data")).style(18, .medium, Brand.danger)
+                    Text(tr("من الخادم ومن هذا الجوال، ولا يمكن التراجع", "From the server and this phone. This can't be undone")).style(14, .regular, Brand.secondaryText)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
+            .glass(radius: 22)
+        }
+        .buttonStyle(PressStyle())
+        .disabled(working)
+    }
+}
+
+private struct DeleteAccountDialog: View {
+    @Binding var working: Bool
+    let onDeleted: () -> Void
+    @EnvironmentObject private var model: AppModel
+    @State private var error: String?
+
+    var body: some View {
+        if let error = error {
+            AfiatiDialog(title: tr("لم يُحذف الحساب", "The account wasn't deleted"), text: error, confirm: tr("حسنًا", "OK"),
+                         onConfirm: { model.dismissDialog() }, onDismiss: { model.dismissDialog() }) { EmptyView() }
+        } else {
+            AfiatiDialog(
+                title: tr("حذف حسابك نهائيًا؟", "Delete your account for good?"),
+                text: tr("تُحذف أدويتك وسجل جرعاتك وطلبات المساعدة وروابط العائلة من الخادم ومن هذا الجوال، ولن يرى أقاربك حالتك بعد الآن. لا يمكن استرجاعها.",
+                         "Your medicines, dose history, help requests and family links are deleted from the server and this phone, and your relatives will no longer see your status. This can't be recovered."),
+                confirm: working ? tr("جارٍ الحذف…", "Deleting…") : tr("حذف نهائيًا", "Delete for good"), destructive: true, dismiss: tr("إلغاء", "Cancel"),
+                confirmEnabled: !working,
+                onConfirm: {
+                    working = true
+                    Task {
+                        let message = await model.deleteAccount()
+                        working = false
+                        if let message = message { error = message } else { model.dismissDialog(); onDeleted() }
+                    }
+                },
+                onDismiss: { if !working { model.dismissDialog() } }
+            ) { EmptyView() }
+        }
     }
 }
 

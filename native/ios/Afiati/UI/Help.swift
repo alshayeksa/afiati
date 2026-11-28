@@ -232,9 +232,12 @@ struct HelpScreen: View {
     }
 
     private func sentBody(answered: Bool) -> String {
-        if answered { return tr("ابق في مكانك واطمئن. إن ساء حالك فاتصل بالإسعاف.", "Stay where you are and relax. If you feel worse, call an ambulance.") }
+        if answered {
+            if model.patient?.gender == Gender.female { return tr("ابقي في مكانك واطمئني. إن ساء حالك فاتصلي بالإسعاف.", "Stay where you are and relax. If you feel worse, call an ambulance.") }
+            return tr("ابق في مكانك واطمئن. إن ساء حالك فاتصل بالإسعاف.", "Stay where you are and relax. If you feel worse, call an ambulance.")
+        }
         if notified == 0 {
-            return tr("لا يتابعك أحد من عائلتك بعد، فلم يصل التنبيه لأحد. اتصل بالإسعاف أو برقم الطوارئ.",
+            return tr(model.patient?.gender == Gender.female ? "لا يتابعك أحد من عائلتك بعد، فلم يصل التنبيه لأحد. اتصلي بالإسعاف أو برقم الطوارئ." : "لا يتابعك أحد من عائلتك بعد، فلم يصل التنبيه لأحد. اتصل بالإسعاف أو برقم الطوارئ.",
                       "No one in your family follows you yet, so the alert reached no one. Call an ambulance or your emergency number.")
         }
         return tr("ننتظر ردّهم. سنعيد تنبيههم كل دقيقتين حتى يرد أحدهم.", "Waiting for their reply. We'll alert them again every 2 minutes until someone answers.")
@@ -347,7 +350,7 @@ struct FamilyHelpCard: View {
                     Text(Format.relative(help.createdAt)).style(15, .regular, Brand.secondaryText)
                 }
             }
-            if let message = help.message { Text("«\(message)»").style(18) }
+            if let message = help.message { Text(tr("«\(message)»", "“\(message)”")).style(18) }
             if answered {
                 let me = help.acknowledgedBy != nil && help.acknowledgedBy == model.patient?.id
                 let toThem = Gender.pick(help.patientGender, tr("إليه", "them"), tr("إليها", "them"))

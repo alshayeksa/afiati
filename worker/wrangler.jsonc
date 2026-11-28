@@ -7,6 +7,9 @@
   // The API stays on workers.dev (the apps use it); the owner control page is served on this domain behind Cloudflare Access.
   "workers_dev": true,
   "routes": [{ "pattern": "afiati.alshaye.ai", "custom_domain": true }],
+  // The public website (home, privacy, support, terms, account deletion), built by site/build.mjs.
+  // Files are served before the Worker; every other path (the API, /forceupdate) reaches the Worker.
+  "assets": { "directory": "./public" },
   "vars": {
     // Same Cloudflare Access application as Mawja's control page (afiati.alshaye.ai/forceupdate is added to it)
     "ACCESS_TEAM_DOMAIN": "khabir-alshayeksa.cloudflareaccess.com",

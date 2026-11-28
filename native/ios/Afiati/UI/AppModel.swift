@@ -283,6 +283,34 @@ final class AppModel: ObservableObject {
         toast = tr("حُفظت تعديلات \(draft.name)", "\(draft.name) changes saved")
     }
 
+    /// حذف الحساب: من الخادم أولًا (كل البيانات وروابط العائلة)، ثم من الجوال، فيعود التطبيق لشاشة البداية.
+    /// يعيد رسالة الخطأ، أو nil عند النجاح.
+    func deleteAccount() async -> String? {
+        do {
+            try await Api.request("/v1/me", method: "DELETE")
+        } catch let error as ApiError {
+            // لم يُسجَّل في الخادم بعد، أو حُذف من قبل: يكفي الحذف من الجوال
+            if error.status == 0 { return tr("تحتاج اتصالًا بالإنترنت لحذف حسابك. اتصل ثم حاول مرة أخرى.", "You need an internet connection to delete your account. Connect and try again.") }
+            if error.status != 401 { return error.message }
+        } catch {
+            return tr("تعذر حذف الحساب. حاول مرة أخرى.", "Couldn't delete the account. Try again.")
+        }
+        Database.shared.sync {
+            for table in ["medication_logs_local", "medications_local", "outbox", "heart_rate_local", "vital_readings_local", "sync_state", "patients_local"] {
+                _ = try? Database.shared.run("DELETE FROM \(table)")
+            }
+        }
+        await Reminders.reschedule()
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        UserDefaults.standard.removeObject(forKey: "emergency.name")
+        UserDefaults.standard.removeObject(forKey: "emergency.phone")
+        emergencyName = ""
+        emergencyPhone = ""
+        reload()
+        return nil
+    }
+
     func stopMedication(_ medication: Medication) {
         guard let id = patient?.id else { return }
         MedicationRepository.deactivate(id, medication.id)

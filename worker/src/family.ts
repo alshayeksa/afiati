@@ -20,28 +20,30 @@ type LinkRow = {
   privacy_level: string;
   status: string;
   full_name: string | null;
+  gender: string | null;
 };
 
 export async function overview(env: Env, auth: AuthContext) {
   // Only the other person's name is exposed, never their phone or email.
   const [followers, following, pending] = await env.DB.batch<LinkRow>([
     env.DB.prepare(
-      `SELECT l.id, l.patient_id, l.caregiver_id, l.privacy_level, l.status, p.full_name
+      `SELECT l.id, l.patient_id, l.caregiver_id, l.privacy_level, l.status, p.full_name, p.gender
        FROM family_links l JOIN profiles p ON p.id = l.caregiver_id
        WHERE l.patient_id = ? AND l.status = 'active' ORDER BY l.approved_at`,
     ).bind(auth.profileId),
     env.DB.prepare(
-      `SELECT l.id, l.patient_id, l.caregiver_id, l.privacy_level, l.status, p.full_name
+      `SELECT l.id, l.patient_id, l.caregiver_id, l.privacy_level, l.status, p.full_name, p.gender
        FROM family_links l JOIN profiles p ON p.id = l.patient_id
        WHERE l.caregiver_id = ? AND l.status = 'active' ORDER BY l.approved_at`,
     ).bind(auth.profileId),
     env.DB.prepare(
-      `SELECT l.id, l.patient_id, l.caregiver_id, l.privacy_level, l.status, p.full_name
+      `SELECT l.id, l.patient_id, l.caregiver_id, l.privacy_level, l.status, p.full_name, p.gender
        FROM family_links l JOIN profiles p ON p.id = l.caregiver_id
        WHERE l.patient_id = ? AND l.status = 'pending' ORDER BY l.invited_at`,
     ).bind(auth.profileId),
   ]);
-  const toApi = ({ full_name, ...link }: LinkRow) => ({ ...link, profiles: { full_name: full_name ?? '' } });
+  // gender: so the apps write «يرى» or «ترى» about the other person
+  const toApi = ({ full_name, gender, ...link }: LinkRow) => ({ ...link, profiles: { full_name: full_name ?? '', gender: gender === 'female' || gender === 'male' ? gender : null } });
   return {
     followers: followers.results.map(toApi),
     following: following.results.map(toApi),

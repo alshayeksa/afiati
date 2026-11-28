@@ -331,7 +331,8 @@ struct DoseRow: View {
                     if taken {
                         Text(Format.dose(log.doseAmount, log.doseUnit)).style(15, .regular, Brand.secondaryText).lineLimit(1)
                         // تهنئة صغيرة مميزة داخل مربع الدواء نفسه
-                        Text(tr("أحسنت · أخذتها", "Well done · taken") + (log.takenAt.map { " " + Format.isoTime($0) } ?? ""))
+                        // في عرض العائلة (بلا زر تسجيل) لا نهنّئ المتابع، بل نذكر وقت أخذها
+                        Text((onTake == nil ? tr("أُخذت", "Taken") : tr("أحسنت · أخذتها", "Well done · taken")) + (log.takenAt.map { " " + Format.isoTime($0) } ?? ""))
                             .style(13, .bold, Brand.mint).lineLimit(1)
                     } else {
                         Text("\(Format.dose(log.doseAmount, log.doseUnit)) · \(stateText)").style(15, .regular, ringing ? Brand.warning : stateColor(state)).lineLimit(1)

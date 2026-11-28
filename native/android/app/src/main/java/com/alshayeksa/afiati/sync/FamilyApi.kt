@@ -31,7 +31,7 @@ object Privacy {
     }
 }
 
-data class FamilyLink(val id: String, val patientId: String, val caregiverId: String, val privacyLevel: String, val status: String, val name: String)
+data class FamilyLink(val id: String, val patientId: String, val caregiverId: String, val privacyLevel: String, val status: String, val name: String, val female: Boolean = false)
 
 data class FamilyOverview(val followers: List<FamilyLink>, val following: List<FamilyLink>, val pending: List<FamilyLink>)
 
@@ -111,6 +111,7 @@ object FamilyApi {
         privacyLevel = o.optString("privacy_level", Privacy.FULL),
         status = o.optString("status"),
         name = o.optJSONObject("profiles")?.nullableString("full_name") ?: tr("فرد من العائلة", "A family member"),
+        female = o.optJSONObject("profiles")?.nullableString("gender") == "female",
     )
 
     suspend fun overview(context: Context): FamilyOverview {

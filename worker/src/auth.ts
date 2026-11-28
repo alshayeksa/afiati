@@ -97,6 +97,27 @@ export async function authenticate(request: Request, env: Env): Promise<AuthCont
   return { deviceId, profileId: device.profile_id };
 }
 
+/**
+ * Deletes the account and everything stored for it (Settings > Delete my account). Required by Apple and Google.
+ * Family links on both sides go too. Messages already delivered to relatives' phones stay on their phones.
+ */
+export async function deleteAccount(env: Env, profileId: string) {
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM help_dispatches WHERE help_id IN (SELECT id FROM help_requests WHERE patient_id = ?)').bind(profileId),
+    env.DB.prepare('DELETE FROM help_requests WHERE patient_id = ?').bind(profileId),
+    env.DB.prepare('UPDATE help_requests SET acknowledged_by = NULL WHERE acknowledged_by = ?').bind(profileId),
+    env.DB.prepare('DELETE FROM notifications_log WHERE user_id = ?').bind(profileId),
+    env.DB.prepare('DELETE FROM family_links WHERE patient_id = ? OR caregiver_id = ?').bind(profileId, profileId),
+    env.DB.prepare('DELETE FROM invitations WHERE patient_id = ?').bind(profileId),
+    env.DB.prepare('DELETE FROM medication_logs WHERE patient_id = ?').bind(profileId),
+    env.DB.prepare('DELETE FROM medications WHERE patient_id = ?').bind(profileId),
+    env.DB.prepare('DELETE FROM device_days WHERE device_id IN (SELECT id FROM devices WHERE profile_id = ?)').bind(profileId),
+    env.DB.prepare('DELETE FROM devices WHERE profile_id = ?').bind(profileId),
+    env.DB.prepare('DELETE FROM profiles WHERE id = ?').bind(profileId),
+  ]);
+  return { ok: true };
+}
+
 /** Two-letter country code Cloudflare gives each request ("SA"), else null. "T1" (Tor) and "XX" are dropped. */
 export function countryOf(request: Request): string | null {
   const code = (request as Request & { cf?: { country?: unknown } }).cf?.country;

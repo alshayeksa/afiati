@@ -262,8 +262,9 @@ fun HelpScreen(onClose: () -> Unit) {
                     )
                     Text(
                         when {
-                            answered -> tr("ابق في مكانك واطمئن. إن ساء حالك فاتصل بالإسعاف.", "Stay where you are and relax. If you feel worse, call an ambulance.")
-                            notified == 0 -> tr("لا يتابعك أحد من عائلتك بعد، فلم يصل التنبيه لأحد. اتصل بالإسعاف أو برقم الطوارئ.", "No one in your family follows you yet, so the alert reached no one. Call an ambulance or your emergency number.")
+                            answered -> if (AppModel.patient?.gender == "female") tr("ابقي في مكانك واطمئني. إن ساء حالك فاتصلي بالإسعاف.", "Stay where you are and relax. If you feel worse, call an ambulance.")
+                                else tr("ابق في مكانك واطمئن. إن ساء حالك فاتصل بالإسعاف.", "Stay where you are and relax. If you feel worse, call an ambulance.")
+                            notified == 0 -> tr(if (AppModel.patient?.gender == "female") "لا يتابعك أحد من عائلتك بعد، فلم يصل التنبيه لأحد. اتصلي بالإسعاف أو برقم الطوارئ." else "لا يتابعك أحد من عائلتك بعد، فلم يصل التنبيه لأحد. اتصل بالإسعاف أو برقم الطوارئ.", "No one in your family follows you yet, so the alert reached no one. Call an ambulance or your emergency number.")
                             else -> tr("ننتظر ردّهم. سنعيد تنبيههم كل دقيقتين حتى يرد أحدهم.", "Waiting for their reply. We'll alert them again every 2 minutes until someone answers.")
                         },
                         style = tajawal(18, color = if (notified == 0 && !answered) Brand.warning else Brand.secondaryText), textAlign = TextAlign.Center,
@@ -371,7 +372,7 @@ fun FamilyHelpCard(help: HelpRequest) {
                 Text(Format.relative(help.createdAt), style = tajawal(15, color = Brand.secondaryText))
             }
         }
-        help.message?.let { Text("«$it»", style = tajawal(18)) }
+        help.message?.let { Text(tr("«$it»", "“$it”"), style = tajawal(18)) }
         if (answered) {
             val me = help.acknowledgedBy != null && help.acknowledgedBy == AppModel.patient?.id
             val toThem = Gender.pick(help.patientGender, tr("إليه", "them"), tr("إليها", "them"))

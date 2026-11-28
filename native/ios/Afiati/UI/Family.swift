@@ -153,7 +153,7 @@ private struct PersonRow: View {
                 AvatarView(name: link.name, id: link.id, size: 52)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(link.name).style(20, .bold).lineLimit(1)
-                    Text(following ? tr("اضغط لترى أدويته اليوم", "Tap to see today's medicines") : tr("يرى: \(Privacy.title(link.privacyLevel))", "Sees: \(Privacy.title(link.privacyLevel))"))
+                    Text(following ? tr(link.female ? "اضغط لترى أدويتها اليوم" : "اضغط لترى أدويته اليوم", "Tap to see today's medicines") : tr("\(link.female ? "ترى" : "يرى"): \(Privacy.title(link.privacyLevel))", "Sees: \(Privacy.title(link.privacyLevel))"))
                         .style(15, .regular, Brand.secondaryText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -483,14 +483,14 @@ struct PatientScreen: View {
         if let current = day {
             if current.privacyLevel == Privacy.alertsOnly {
                 EmptyCard(title: tr("تنبيهات التأخير فقط", "Missed-dose alerts only"),
-                          message: tr("اختار \(link.name) أن تصلك تنبيهات عند فوات جرعة، دون عرض تفاصيل أدويته.", "\(link.name) chose to send you alerts when a dose is missed, without showing medicine details."))
+                          message: tr(link.female ? "اختارت \(link.name) أن تصلك تنبيهات عند فوات جرعة، دون عرض تفاصيل أدويتها." : "اختار \(link.name) أن تصلك تنبيهات عند فوات جرعة، دون عرض تفاصيل أدويته.", "\(link.name) chose to send you alerts when a dose is missed, without showing medicine details."))
             } else {
                 let logs = current.logs
                 let done = logs.filter { $0.status == DoseStatus.taken }.count
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(tr("التزامه اليوم", "Their adherence today")).style(17, .regular, Brand.secondaryText)
-                        Text(logs.isEmpty ? tr("لا جرعات اليوم", "No doses today") : tr("أخذ \(done) من \(logs.count)", "Took \(done) of \(logs.count)")).style(24, .bold)
+                        Text(tr(link.female ? "التزامها اليوم" : "التزامه اليوم", "Their adherence today")).style(17, .regular, Brand.secondaryText)
+                        Text(logs.isEmpty ? tr("لا جرعات اليوم", "No doses today") : tr(link.female ? "أخذت \(done) من \(logs.count)" : "أخذ \(done) من \(logs.count)", "Took \(done) of \(logs.count)")).style(24, .bold)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     ProgressRing(progress: logs.isEmpty ? 0 : Double(done) / Double(logs.count), size: 96) {

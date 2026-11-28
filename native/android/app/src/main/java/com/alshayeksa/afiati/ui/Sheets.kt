@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AlarmOn
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LocationOn
@@ -222,7 +223,52 @@ fun SettingsSheet(onDismiss: () -> Unit) {
 
             FieldLabel(tr("المزامنة", "Sync"), Modifier.padding(top = 10.dp))
             SyncCard()
+
+            FieldLabel(tr("الحساب", "Account"), Modifier.padding(top = 10.dp))
+            DeleteAccountRow(onDeleted = onDismiss)
         }
+    }
+}
+
+/** حذف الحساب وكل البيانات من الخادم والجوال، بعد تأكيد. يشترطه متجرا Apple وGoogle. */
+@Composable
+private fun DeleteAccountRow(onDeleted: () -> Unit) {
+    var confirm by remember { mutableStateOf(false) }
+    var working by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    Row(
+        Modifier.fillMaxWidth().glass(RoundedCornerShape(22.dp)).clickable(enabled = !working) { confirm = true }
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.DeleteForever, null, tint = Brand.danger, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(if (working) tr("جارٍ الحذف…", "Deleting…") else tr("حذف حسابي وبياناتي", "Delete my account and data"), style = tajawal(18, FontWeight.Medium, Brand.danger))
+            Text(tr("من الخادم ومن هذا الجوال، ولا يمكن التراجع", "From the server and this phone. This can't be undone"), style = tajawal(14, color = Brand.secondaryText))
+        }
+    }
+    if (confirm) {
+        AfiatiDialog(
+            title = tr("حذف حسابك نهائيًا؟", "Delete your account for good?"),
+            text = tr(
+                "تُحذف أدويتك وسجل جرعاتك وطلبات المساعدة وروابط العائلة من الخادم ومن هذا الجوال، ولن يرى أقاربك حالتك بعد الآن. لا يمكن استرجاعها.",
+                "Your medicines, dose history, help requests and family links are deleted from the server and this phone, and your relatives will no longer see your status. This can't be recovered.",
+            ),
+            confirm = tr("حذف نهائيًا", "Delete for good"), destructive = true,
+            onConfirm = {
+                confirm = false
+                working = true
+                AppModel.deleteAccount { message ->
+                    working = false
+                    if (message == null) onDeleted() else error = message
+                }
+            },
+            dismiss = tr("إلغاء", "Cancel"), onDismiss = { confirm = false },
+        )
+    }
+    error?.let { message ->
+        AfiatiDialog(title = tr("لم يُحذف الحساب", "The account wasn't deleted"), text = message, confirm = tr("حسنًا", "OK"), onConfirm = { error = null }, onDismiss = { error = null })
     }
 }
 

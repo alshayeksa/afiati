@@ -458,3 +458,32 @@ Manual entry is currently faster and more reliable for the target flow.
 - Android build and unit tests passed. Installed on the Samsung, where the app reached the server.
 - The iOS build runs on CI.
 - Production: not deployed yet. This needs migration 0007 and a deploy.
+
+## 2026-11-28 - Website, account deletion, wording for women
+
+### Change
+- Website at `afiati.alshaye.ai`, built by `site/build.mjs` (with `site/prepare_assets.py`) into `worker/public` and served by the Worker as static assets.
+  - Pages, Arabic and English: home (focused on the family link), privacy, support, terms, and account deletion (`/delete-account/`, the URL for Google Play).
+  - The site uses no JavaScript and no third-party requests, under a strict CSP.
+  - Screenshots are real app screens from an Android emulator with demo data on a local server (`site/shots`), not user data.
+- Account deletion, which Apple and Google require:
+  - Settings > «Delete my account and data» (Android and iOS).
+  - `DELETE /v1/me` removes the profile, devices, medicines, logs, help requests, notifications, invitations, family links in both directions, and device days. The app then wipes the phone and returns to the start.
+- Wording when the elder or a relative is a woman:
+  - «ابقي في مكانك واطمئني»
+  - «ترى» / «أدويتها»
+  - «التزامها» / «أخذت»
+  - The family view shows «أُخذت 8:27» instead of «أحسنت» addressed to the relative.
+  - The family overview now carries each person's gender.
+- The help message is quoted with “” in English.
+- Unknown non-API paths return 404 JSON.
+- Debug builds can reach `10.0.2.2` over http (emulator testing only).
+
+### Verification
+- Local worker: account deletion 9/9, plus every earlier suite (partners, control, undo, sync, family, limits).
+- On the Android emulator:
+  - Deleting through the app removed the server account and the family link, wiped the phone and showed the welcome screen.
+  - The corrected wording and the crescent were seen on screen.
+- Android build passed, with the production URL in the APK.
+- Site pages render on desktop and mobile widths.
+- Not deployed yet. iOS builds on CI.

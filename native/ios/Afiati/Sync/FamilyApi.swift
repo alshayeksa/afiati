@@ -29,6 +29,7 @@ struct FamilyLink: Identifiable, Equatable {
     let privacyLevel: String
     let status: String
     let name: String
+    var female = false
 }
 
 struct FamilyOverview: Equatable {
@@ -150,7 +151,8 @@ enum FamilyApi {
         return FamilyLink(
             id: id, patientId: Json.string(o["patient_id"]) ?? "", caregiverId: Json.string(o["caregiver_id"]) ?? "",
             privacyLevel: Json.string(o["privacy_level"]) ?? Privacy.full, status: Json.string(o["status"]) ?? "",
-            name: Json.string((o["profiles"] as? JSON)?["full_name"]) ?? tr("فرد من العائلة", "A family member")
+            name: Json.string((o["profiles"] as? JSON)?["full_name"]) ?? tr("فرد من العائلة", "A family member"),
+            female: Json.string((o["profiles"] as? JSON)?["gender"]) == Gender.female
         )
     }
 

@@ -223,7 +223,8 @@ private fun PersonRow(link: FamilyLink, following: Boolean, onClick: () -> Unit)
         Column(Modifier.weight(1f)) {
             Text(link.name, style = tajawal(20, FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                if (following) tr("اضغط لترى أدويته اليوم", "Tap to see today's medicines") else tr("يرى: ${Privacy.title(link.privacyLevel)}", "Sees: ${Privacy.title(link.privacyLevel)}"),
+                if (following) tr(if (link.female) "اضغط لترى أدويتها اليوم" else "اضغط لترى أدويته اليوم", "Tap to see today's medicines")
+                else tr("${if (link.female) "ترى" else "يرى"}: ${Privacy.title(link.privacyLevel)}", "Sees: ${Privacy.title(link.privacyLevel)}"),
                 style = tajawal(15, color = Brand.secondaryText),
             )
         }
@@ -490,7 +491,7 @@ fun PatientScreen(link: FamilyLink, onClose: () -> Unit) {
                     Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Brand.glow) }
                 }
                 current.privacyLevel == Privacy.ALERTS_ONLY -> item(key = "alerts") {
-                    EmptyCard(tr("تنبيهات التأخير فقط", "Missed-dose alerts only"), tr("اختار ${link.name} أن تصلك تنبيهات عند فوات جرعة، دون عرض تفاصيل أدويته.", "${link.name} chose to send you alerts when a dose is missed, without showing medicine details."))
+                    EmptyCard(tr("تنبيهات التأخير فقط", "Missed-dose alerts only"), tr(if (link.female) "اختارت ${link.name} أن تصلك تنبيهات عند فوات جرعة، دون عرض تفاصيل أدويتها." else "اختار ${link.name} أن تصلك تنبيهات عند فوات جرعة، دون عرض تفاصيل أدويته.", "${link.name} chose to send you alerts when a dose is missed, without showing medicine details."))
                 }
                 else -> {
                     val logs = current.logs
@@ -501,8 +502,8 @@ fun PatientScreen(link: FamilyLink, onClose: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(Modifier.weight(1f)) {
-                                Text(tr("التزامه اليوم", "Their adherence today"), style = tajawal(17, color = Brand.secondaryText))
-                                Text(if (logs.isEmpty()) tr("لا جرعات اليوم", "No doses today") else tr("أخذ $done من ${logs.size}", "Took $done of ${logs.size}"), style = tajawal(24, FontWeight.Bold))
+                                Text(tr(if (link.female) "التزامها اليوم" else "التزامه اليوم", "Their adherence today"), style = tajawal(17, color = Brand.secondaryText))
+                                Text(if (logs.isEmpty()) tr("لا جرعات اليوم", "No doses today") else tr(if (link.female) "أخذت $done من ${logs.size}" else "أخذ $done من ${logs.size}", "Took $done of ${logs.size}"), style = tajawal(24, FontWeight.Bold))
                             }
                             ProgressRing(if (logs.isEmpty()) 0f else done.toFloat() / logs.size, 96.dp) {
                                 Text(if (logs.isEmpty()) "—" else tr("${done * 100 / logs.size}٪", "${done * 100 / logs.size}%"), style = tajawal(22, FontWeight.Bold))

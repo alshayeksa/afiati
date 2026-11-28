@@ -330,6 +330,40 @@ object AppModel {
         }
     }
 
+    /**
+     * حذف الحساب: من الخادم أولًا (كل البيانات وروابط العائلة)، ثم من الجوال، فيعود التطبيق لشاشة البداية.
+     * onDone يستلم رسالة الخطأ، أو null عند النجاح.
+     */
+    fun deleteAccount(onDone: (String?) -> Unit) {
+        scope.launch {
+            val error = withContext(Dispatchers.IO) {
+                val result = runCatching { com.alshayeksa.afiati.sync.Api.request("/v1/me", method = "DELETE") }
+                val failure = result.exceptionOrNull() as? com.alshayeksa.afiati.sync.ApiException
+                when {
+                    result.isSuccess -> null
+                    // لم يُسجَّل في الخادم بعد، أو حُذف من قبل: يكفي الحذف من الجوال
+                    failure?.status == 401 -> null
+                    failure?.status == 0 -> tr("تحتاج اتصالًا بالإنترنت لحذف حسابك. اتصل ثم حاول مرة أخرى.", "You need an internet connection to delete your account. Connect and try again.")
+                    else -> failure?.message ?: tr("تعذر حذف الحساب. حاول مرة أخرى.", "Couldn't delete the account. Try again.")
+                }
+            }
+            if (error != null) return@launch onDone(error)
+            withContext(Dispatchers.IO) {
+                Db.tx { db ->
+                    listOf("medication_logs_local", "medications_local", "outbox", "heart_rate_local", "vital_readings_local", "sync_state", "patients_local")
+                        .forEach { table -> runCatching { db.delete(table, null, null) } }
+                }
+                runCatching { Reminders.reschedule(app) }
+                runCatching { androidx.core.app.NotificationManagerCompat.from(app).cancelAll() }
+            }
+            LocalStore.prefs.edit().remove("emergency.name").remove("emergency.phone").apply()
+            emergencyName = ""
+            emergencyPhone = ""
+            reload()
+            onDone(null)
+        }
+    }
+
     fun stopMedication(medication: Medication) {
         val id = patient?.id ?: return
         scope.launch {

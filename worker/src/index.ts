@@ -1,5 +1,5 @@
 import { alertLowStock, alertMissedDoses } from './alerts';
-import { authenticate, register } from './auth';
+import { authenticate, deleteAccount, register } from './auth';
 import { appConfig, controlRoute, gate, readSettings, updateRoute } from './control';
 import { isApnsToken } from './apns';
 import { isFcmToken } from './fcm';
@@ -60,6 +60,8 @@ async function route(request: Request, env: Env, waitUntil: (promise: Promise<un
   if (pathname === '/forceupdate' && (method === 'GET' || method === 'POST')) return controlRoute(request, env);
   if (method === 'GET' && pathname === '/update') return updateRoute(request, env);
   if (method === 'GET' && pathname === '/v1/app-config') return json(appConfig(await readSettings(env)));
+  // The website is served from worker/public before the Worker runs; any other non-API path does not exist
+  if (!pathname.startsWith('/v1/')) throw new HttpError(404, 'not_found');
 
   // Medical partners (ambulance, hospitals) answer help requests with their own API key.
   // Not affected by the service switch or forced update: those are for the apps.
@@ -106,6 +108,9 @@ async function route(request: Request, env: Env, waitUntil: (promise: Promise<un
       .run();
     return json({ ok: true });
   }
+
+  // Delete my account: everything on the server, for good
+  if (method === 'DELETE' && pathname === '/v1/me') return json(await deleteAccount(env, auth.profileId));
 
   if (method === 'PUT' && pathname === '/v1/me/push-token') {
     const body = await readJson(request);
