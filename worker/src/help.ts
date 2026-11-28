@@ -12,6 +12,12 @@ import { clock, g, mapUrl, parseGender, type Gender } from './arabic';
 import { HttpError, nowIso, optionalText, readJson } from './http';
 import { notifyUser, type Waiter } from './push';
 import { enforceRateLimit } from './rateLimit';
+import { dispatchHelp, dispatchesFor, type HelpEvent } from './partners';
+
+/** Medical partners get the request too, when the elder agreed (partners.ts). Never delays the family alert. */
+function toPartners(env: Env, id: string, event: HelpEvent, waitUntil: Waiter) {
+  waitUntil(dispatchHelp(env, id, event).catch((error) => console.error('partner dispatch failed', error)));
+}
 
 /** A request older than this is no longer shown as active. */
 const ACTIVE_FOR_MS = 12 * 60 * 60 * 1000;
@@ -96,6 +102,8 @@ async function toApi(env: Env, row: HelpRow, forCaregiver: boolean) {
     acknowledged_at: row.acknowledged_at,
     resolved_at: row.resolved_at,
     created_at: row.created_at,
+    // Medical services that have the request (empty until a partner is linked and the elder agreed)
+    services: await dispatchesFor(env, row.id),
   };
 }
 
@@ -202,6 +210,7 @@ export async function requestHelp(request: Request, env: Env, auth: AuthContext,
   }
   const row = await load(env, id);
   const notified = await pushToFamily(env, row, waitUntil, false);
+  toPartners(env, id, 'help.created', waitUntil);
   return { help: await toApi(env, row, false), notified };
 }
 
@@ -220,6 +229,7 @@ export async function updateHelpLocation(request: Request, env: Env, auth: AuthC
     .bind(location.latitude, location.longitude, location.accuracy, location.at, id)
     .run();
   const current = await load(env, id);
+  toPartners(env, id, 'help.location', waitUntil);
   if (current.status === 'open') {
     await pushToFamily(env, current, waitUntil, false, false);
   } else {
@@ -307,6 +317,7 @@ export async function resolveHelp(env: Env, auth: AuthContext, id: string, waitU
   // Answered before anyone responded: a cancel (pressed by mistake). Otherwise resolved.
   const status = row.status === 'open' ? 'cancelled' : 'resolved';
   await env.DB.prepare('UPDATE help_requests SET status = ?, resolved_at = ? WHERE id = ?').bind(status, now, id).run();
+  toPartners(env, id, 'help.resolved', waitUntil);
   const patient = await profile(env, row.patient_id);
   const pg = patient?.gender ?? null;
   for (const member of await followers(env, row.patient_id)) {

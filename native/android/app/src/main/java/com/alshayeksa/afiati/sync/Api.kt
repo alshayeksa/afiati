@@ -15,16 +15,28 @@ class ApiException(val status: Int, val code: String, message: String) : Excepti
 
 /** عميل خادم عافيتي على Cloudflare (مجلد worker). */
 object Api {
-    private val baseUrl = BuildConfig.API_URL.trimEnd('/')
+    /** العنوان المدمج في التطبيق، يُستخدم ما لم تحدد صفحة التحكم غيره */
+    val defaultUrl = BuildConfig.API_URL.trimEnd('/')
+    private const val KEY_URL = "api.url"
+
+    /** عنوان الخادم الحالي: من صفحة التحكم (يُحفظ في الجوال)، أو المدمج */
+    val baseUrl: String
+        get() = runCatching { com.alshayeksa.afiati.ui.LocalStore.prefs.getString(KEY_URL, null) }.getOrNull()
+            ?.takeIf { it.startsWith("https://") } ?: defaultUrl
+
+    fun setBaseUrl(url: String?) {
+        com.alshayeksa.afiati.ui.LocalStore.prefs.edit().apply { if (url == null) remove(KEY_URL) else putString(KEY_URL, url) }.apply()
+    }
+
     val configured: Boolean get() = baseUrl.isNotEmpty()
     private const val TIMEOUT_MS = 20_000
 
-    /** طلب متزامن، يُستدعى من خيط خلفي فقط */
-    fun request(path: String, method: String = "GET", body: JSONObject? = null, auth: Boolean = true): JSONObject {
+    /** طلب متزامن، يُستدعى من خيط خلفي فقط. absolute: عنوان كامل بدل مسار على الخادم الحالي. */
+    fun request(path: String, method: String = "GET", body: JSONObject? = null, auth: Boolean = true, absolute: String? = null): JSONObject {
         if (!configured) throw ApiException(0, "not_configured", tr("خادم المزامنة غير مُعد.", "The sync server isn't set up."))
         val token = if (auth) SyncState.get(SyncState.DEVICE_TOKEN) ?: throw ApiException(401, "unauthorized", tr("الجهاز غير مسجل.", "This device isn't registered.")) else null
         val connection = try {
-            (URL(baseUrl + path).openConnection() as HttpURLConnection).apply {
+            (URL(absolute ?: (baseUrl + path)).openConnection() as HttpURLConnection).apply {
                 requestMethod = method
                 connectTimeout = TIMEOUT_MS
                 readTimeout = TIMEOUT_MS

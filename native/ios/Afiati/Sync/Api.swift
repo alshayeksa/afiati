@@ -10,7 +10,21 @@ struct ApiError: Error, LocalizedError {
 
 /// عميل خادم عافيتي على Cloudflare (مجلد worker).
 enum Api {
-    static let baseURL = "https://afiati-api.alshayeksa.workers.dev"
+    /// العنوان المدمج في التطبيق، يُستخدم ما لم تحدد صفحة التحكم غيره
+    static let defaultURL = "https://afiati-api.alshayeksa.workers.dev"
+    /// إعدادات التطبيق (ومنها عنوان الخادم) تُقرأ من هنا، فيمكن نقل الخادم بلا تحديث للتطبيق
+    static let configURL = "https://afiati.alshaye.ai/v1/app-config"
+    private static let urlKey = "api.url"
+
+    /// عنوان الخادم الحالي: من صفحة التحكم (يُحفظ في الجوال)، أو المدمج
+    static var baseURL: String {
+        if let saved = UserDefaults.standard.string(forKey: urlKey), saved.hasPrefix("https://") { return saved }
+        return defaultURL
+    }
+
+    static func setBaseURL(_ url: String?) {
+        if let url = url { UserDefaults.standard.set(url, forKey: urlKey) } else { UserDefaults.standard.removeObject(forKey: urlKey) }
+    }
     private static let timeout: TimeInterval = 20
 
     private static let session: URLSession = {
@@ -26,8 +40,9 @@ enum Api {
     }
 
     @discardableResult
-    static func request(_ path: String, method: String = "GET", body: JSON? = nil, auth: Bool = true) async throws -> JSON {
-        guard let url = URL(string: baseURL + path) else { throw ApiError(status: 0, code: "bad_url", message: path) }
+    /// absolute: عنوان كامل بدل مسار على الخادم الحالي
+    static func request(_ path: String, method: String = "GET", body: JSON? = nil, auth: Bool = true, absolute: String? = nil) async throws -> JSON {
+        guard let url = URL(string: absolute ?? (baseURL + path)) else { throw ApiError(status: 0, code: "bad_url", message: path) }
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")

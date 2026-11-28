@@ -29,14 +29,30 @@ struct AppControl: Equatable {
                           updateURL: values["url"] as? String ?? "")
     }
 
-    /// يقرأ الحالة من الخادم. nil عند الخطأ، فتبقى الحالة المحفوظة.
+    /// يقرأ الإعدادات من afiati.alshaye.ai (وإن تعذر فمن الخادم الحالي). nil عند الخطأ، فتبقى الحالة المحفوظة.
     static func refresh() async -> AppControl? {
-        guard let config = try? await Api.request("/v1/app-config", auth: false) else { return nil }
+        var fetched = try? await Api.request("", auth: false, absolute: Api.configURL)
+        if fetched == nil { fetched = try? await Api.request("/v1/app-config", auth: false) }
+        guard let config = fetched else { return nil }
+        await applyServer(Json.string(config["api_url"]))
         let ios = config["ios"] as? JSON
         let url = Json.string(ios?["url"]) ?? ""
         let value = AppControl(serviceOn: Json.bool(config["service_on"]) ?? true, minBuild: Json.int(ios?["min_build"]) ?? 0,
                                updateURL: url.hasPrefix("https://") ? url : "")
         UserDefaults.standard.set(["service_on": value.serviceOn, "min_build": value.minBuild, "url": value.updateURL], forKey: key)
         return value
+    }
+
+    /// عنوان الخادم من صفحة التحكم: لا ينتقل إليه التطبيق إلا بعد أن يجيب /health، فلا ينقطع بعنوان خاطئ.
+    private static func applyServer(_ url: String?) async {
+        var target = url ?? ""
+        while target.hasSuffix("/") { target.removeLast() }
+        guard target.hasPrefix("https://"), target != Api.defaultURL else {
+            if Api.baseURL != Api.defaultURL { Api.setBaseURL(nil) }
+            return
+        }
+        guard target != Api.baseURL else { return }
+        let health = try? await Api.request("", auth: false, absolute: target + "/health")
+        if Json.bool(health?["ok"]) == true { Api.setBaseURL(target) }
     }
 }

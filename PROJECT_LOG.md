@@ -424,3 +424,33 @@ Manual entry is currently faster and more reliable for the target flow.
 - Android unit tests and build passed; installed on the Samsung; the new switch shows in Settings.
 - iOS build and tests passed on CI (run 46106823458).
 - Not yet verified on a device: the flashing and the chime (the owner's dose is at 8 PM and their data was not changed), and the crescent (the Help screen sends a real request, so it was not opened).
+
+## 2026-11-28 - Control page: statistics, server address, medical partners
+
+### Change
+- `/forceupdate` redesigned as a dashboard. It has five sections: statistics, service, forced update, server address and medical partners. It uses no scripts.
+- Statistics:
+  - total users, plus new this week and this month;
+  - devices active today, in the last 7 days and in the last 30 days;
+  - a daily-active chart for 30 days, with a table view;
+  - countries with flags, and the iPhone/Android split;
+  - active medicines, doses taken, help requests and family links.
+  - How it is collected: the country comes from Cloudflare (`request.cf.country`), stored per device with no IP. Activity goes in `device_days`, one row per device per day (migration `0007`).
+- Server address:
+  - The apps read `https://afiati.alshaye.ai/v1/app-config`, which is fixed in the apps, falling back to the current server. It now carries `api_url`.
+  - The apps switch to the new address only after its `/health` answers.
+  - The page also checks `/health` before saving.
+  - Empty means the built-in address.
+- Medical partners (ambulance, hospitals):
+  - Each partner gets an API key and a webhook secret, shown once. The page can add, deactivate, rotate keys and delete (with confirmation).
+  - Help requests go to active partners serving the elder's country, as signed webhooks (`help.created`, `help.location`, `help.resolved`). This only happens when the elder turned on `partner_consent`, which is off by default and not yet in the apps.
+  - Partners answer with `POST /v1/partner/help/:id/status`. The elder and the family are notified.
+  - Failed deliveries are retried by the cron.
+  - Contract: `docs/partner-api.md`.
+- Stopping the service now asks for a confirmation tick.
+
+### Verification
+- Local worker: partners and control 47/47, cron retry 3/3. Regression passed: control 23/23, undo, sync and family.
+- Android build and unit tests passed. Installed on the Samsung, where the app reached the server.
+- The iOS build runs on CI.
+- Production: not deployed yet. This needs migration 0007 and a deploy.

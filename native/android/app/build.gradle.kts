@@ -33,6 +33,8 @@ android {
         versionCode = buildNumber
         versionName = "2.0"
         buildConfigField("String", "API_URL", "\"$apiUrl\"")
+        // إعدادات التطبيق (ومنها عنوان الخادم) تُقرأ من هنا، فيمكن نقل الخادم بلا تحديث للتطبيق
+        buildConfigField("String", "CONFIG_URL", "\"https://afiati.alshaye.ai/v1/app-config\"")
     }
 
     signingConfigs {

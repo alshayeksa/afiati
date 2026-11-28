@@ -38,13 +38,31 @@ object AppControl {
         updateUrl = prefs.getString(KEY_URL, "").orEmpty()
     }
 
-    /** يقرأ الحالة من الخادم. الأخطاء تُتجاهل وتبقى الحالة المحفوظة. */
+    /**
+     * يقرأ الإعدادات من afiati.alshaye.ai (وإن تعذر فمن الخادم الحالي). الأخطاء تُتجاهل وتبقى الحالة المحفوظة.
+     * ومنها عنوان الخادم: لا ينتقل إليه التطبيق إلا بعد أن يجيب /health، فلا ينقطع بعنوان خاطئ.
+     */
     suspend fun refresh() {
-        val config = withContext(Dispatchers.IO) { runCatching { Api.request("/v1/app-config", auth = false) }.getOrNull() } ?: return
+        val config = withContext(Dispatchers.IO) {
+            runCatching { Api.request("", auth = false, absolute = BuildConfig.CONFIG_URL) }.getOrNull()
+                ?: runCatching { Api.request("/v1/app-config", auth = false) }.getOrNull()
+        } ?: return
+        withContext(Dispatchers.IO) { applyServer(config.optString("api_url").takeIf { !config.isNull("api_url") }) }
         val android = config.optJSONObject("android")
         serviceOn = config.optBoolean("service_on", true)
         minBuild = android?.optInt("min_build", 0) ?: 0
         updateUrl = android?.optString("url").orEmpty().takeIf { it.startsWith("https://") }.orEmpty()
         LocalStore.prefs.edit().putBoolean(KEY_SERVICE, serviceOn).putInt(KEY_MIN, minBuild).putString(KEY_URL, updateUrl).apply()
+    }
+
+    private fun applyServer(url: String?) {
+        val target = url?.trimEnd('/')?.takeIf { it.startsWith("https://") }
+        if (target == null || target == Api.defaultUrl) {
+            if (Api.baseUrl != Api.defaultUrl) Api.setBaseUrl(null)
+            return
+        }
+        if (target == Api.baseUrl) return
+        val healthy = runCatching { Api.request("", auth = false, absolute = "$target/health").optBoolean("ok") }.getOrDefault(false)
+        if (healthy) Api.setBaseUrl(target)
     }
 }
