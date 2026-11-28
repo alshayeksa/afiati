@@ -410,3 +410,17 @@ Manual entry is currently faster and more reliable for the target flow.
 - Local worker: undo 7/7 (plain pending cannot undo, stale undo ignored, explicit undo applies, retake works, skipped hidden from family), sync regression passed.
 - Android unit tests and build passed. On the Samsung: the heart wave, the edit screen opens prefilled, tapping a dose row opens nothing, the stuck dose of a stopped medicine disappeared.
 - Not yet verified on a device: saving an edit and undoing a dose (not done on the owner's real data), and the chime on a real «I'm coming».
+
+## 2026-11-28 - Dose alert inside the app, crescent on the ambulance button
+
+### Change
+- Android and iOS: when a dose is due, its card in «Today's doses» flashes with an orange frame until the dose is marked. The flashing stops by itself after 15 minutes.
+- A short chime (synthesized here, `dose_alert.ogg` / `dose-alert.wav`) repeats every 7 seconds while a dose is flashing and the app is open. It respects silent mode.
+- Settings: new switch «Medicine time alert sound» (key `alert.sound`, on by default). Turning it off stops the chime and keeps the flashing.
+- The usual notification is unchanged.
+- The «Call ambulance» button shows a crescent instead of a cross (Help screen and the service-paused screen).
+
+### Verification
+- Android unit tests and build passed; installed on the Samsung; the new switch shows in Settings.
+- iOS build and tests passed on CI (run 46106823458).
+- Not yet verified on a device: the flashing and the chime (the owner's dose is at 8 PM and their data was not changed), and the crescent (the Help screen sends a real request, so it was not opened).
