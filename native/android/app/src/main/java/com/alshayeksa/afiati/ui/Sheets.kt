@@ -168,6 +168,23 @@ fun SettingsSheet(onDismiss: () -> Unit) {
                 }
             }
 
+            Row(
+                Modifier.fillMaxWidth().glass(RoundedCornerShape(22.dp)).clickable(role = Role.Switch) { DoseAlert.setSound(!DoseAlert.soundOn) }
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.NotificationsActive, null, tint = Brand.glow, modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(tr("صوت تنبيه موعد الدواء", "Medicine time alert sound"), style = tajawal(18, FontWeight.Medium))
+                    Text(tr("نغمة تتكرر والبطاقة تومض حتى تسجّل الجرعة، وتتوقف بعد 15 دقيقة", "A repeating chime while the card flashes until you mark the dose; stops after 15 minutes"), style = tajawal(14, color = Brand.secondaryText))
+                }
+                Switch(
+                    DoseAlert.soundOn, { DoseAlert.setSound(it) },
+                    colors = SwitchDefaults.colors(checkedTrackColor = Brand.mint, checkedThumbColor = Brand.text, uncheckedTrackColor = Brand.text.copy(alpha = 0.1f)),
+                )
+            }
+
             var locationAsked by remember { mutableIntStateOf(0) }
             val locationAllowed = remember(tick, locationAsked) { HelpLocation.granted(context) }
             val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { locationAsked++ }

@@ -39,7 +39,7 @@ struct BlockView: View {
                         let who = model.emergencyName.isEmpty ? model.emergencyPhone : model.emergencyName
                         GlassButton(tr("اتصال بـ \(who)", "Call \(who)"), icon: "phone.fill") { Links.dial(model.emergencyPhone) }
                     }
-                    GlassButton(tr("اتصال بالإسعاف \(ambulance)", "Call ambulance \(ambulance)"), icon: "cross.case.fill", color: Brand.danger) { Links.dial(ambulance) }
+                    GlassButton(tr("اتصال بالإسعاف \(ambulance)", "Call ambulance \(ambulance)"), icon: "crescent", color: Brand.danger) { Links.dial(ambulance) }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)

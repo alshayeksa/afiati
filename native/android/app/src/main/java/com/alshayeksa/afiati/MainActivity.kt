@@ -27,6 +27,7 @@ class AfiatiApp : Application() {
         LocalStore.init(this)
         Lang.load(this)
         com.alshayeksa.afiati.sync.AppControl.load()
+        com.alshayeksa.afiati.ui.DoseAlert.load()
         Db.init(this)
         Appearance.init(this)
         Reminders.createChannel(this)

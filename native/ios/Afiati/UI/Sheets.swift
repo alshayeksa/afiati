@@ -86,6 +86,7 @@ struct SettingsSheet: View {
     let onDismiss: () -> Void
     @EnvironmentObject private var model: AppModel
     @ObservedObject private var location = HelpLocation.shared
+    @AppStorage("alert.sound") private var alertSound = true
 
     var body: some View {
         AfiatiSheet(title: tr("الإعدادات", "Settings"), onDismiss: onDismiss) {
@@ -110,6 +111,20 @@ struct SettingsSheet: View {
                         Links.notificationSettings()
                     }
                 }
+                Toggle(isOn: $alertSound) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "bell.badge.fill").foregroundColor(Brand.glow)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tr("صوت تنبيه موعد الدواء", "Medicine time alert sound")).style(18, .medium)
+                            Text(tr("نغمة تتكرر والبطاقة تومض حتى تسجّل الجرعة، وتتوقف بعد 15 دقيقة", "A repeating chime while the card flashes until you mark the dose; stops after 15 minutes"))
+                                .style(14, .regular, Brand.secondaryText)
+                        }
+                    }
+                }
+                .tint(Brand.mint)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 12)
+                .glass(radius: 22)
                 PermissionRow(icon: "location.fill", title: tr("موقعي مع طلب المساعدة", "My location with help requests"),
                               status: location.granted ? tr("مسموح · يصل موقعك لعائلتك على خرائط Google", "Allowed · your family sees your location on Google Maps") : tr("غير مسموح · اضغط للسماح", "Not allowed · tap to allow"),
                               ok: location.granted) {

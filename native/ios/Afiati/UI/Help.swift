@@ -124,7 +124,7 @@ struct HelpScreen: View {
                     let who = model.emergencyName.isEmpty ? model.emergencyPhone : model.emergencyName
                     CallButton(title: tr("اتصال بـ \(who)", "Call \(who)"), icon: "phone.fill", color: Brand.mint) { Links.dial(model.emergencyPhone) }
                 }
-                CallButton(title: tr("اتصال بالإسعاف \(ambulance)", "Call ambulance \(ambulance)"), icon: "cross.case.fill", color: red) { Links.dial(ambulance) }
+                CallButton(title: tr("اتصال بالإسعاف \(ambulance)", "Call ambulance \(ambulance)"), icon: "crescent", color: red) { Links.dial(ambulance) }
                 if phase == .sent && help != nil {
                     GlassButton(resolving ? tr("جارٍ الإرسال…", "Sending…") : tr("أنا بخير الآن", "I'm fine now"), icon: "checkmark", enabled: !resolving) {
                         resolving = true
@@ -277,7 +277,7 @@ struct CallButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: icon).font(.system(size: 20, weight: .semibold))
+                AppIcon(name: icon, size: 20, weight: .semibold)
                 Text(title).style(19, .bold, .white).lineLimit(1).minimumScaleFactor(0.7)
             }
             .foregroundColor(.white)

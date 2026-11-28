@@ -313,7 +313,7 @@ struct GlassButton: View {
         let tint = color ?? Brand.glow
         Button(action: action) {
             HStack(spacing: 8) {
-                if let icon = icon { Image(systemName: icon).font(.system(size: 19, weight: .medium)) }
+                if let icon = icon { AppIcon(name: icon, size: 19, weight: .medium) }
                 Text(title).style(18, .medium, tint).multilineTextAlignment(.center)
             }
             .foregroundColor(tint)

@@ -63,7 +63,7 @@ fun BlockScreen(block: AppControl.Block) {
                         dial(context, AppModel.emergencyPhone)
                     }
                 }
-                GlassButton(tr("اتصال بالإسعاف $AMBULANCE", "Call ambulance $AMBULANCE"), icon = Icons.Filled.LocalHospital, color = Brand.danger) { dial(context, AMBULANCE) }
+                GlassButton(tr("اتصال بالإسعاف $AMBULANCE", "Call ambulance $AMBULANCE"), icon = CrescentIcon, color = Brand.danger) { dial(context, AMBULANCE) }
             }
         }
     }

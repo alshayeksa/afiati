@@ -289,7 +289,7 @@ fun HelpScreen(onClose: () -> Unit) {
             if (AppModel.emergencyPhone.isNotBlank()) {
                 CallButton(tr("اتصال بـ ${AppModel.emergencyName.ifBlank { AppModel.emergencyPhone }}", "Call ${AppModel.emergencyName.ifBlank { AppModel.emergencyPhone }}"), Icons.Filled.Call, Brand.mint) { dial(context, AppModel.emergencyPhone) }
             }
-            CallButton(tr("اتصال بالإسعاف $AMBULANCE", "Call ambulance $AMBULANCE"), Icons.Filled.LocalHospital, Red) { dial(context, AMBULANCE) }
+            CallButton(tr("اتصال بالإسعاف $AMBULANCE", "Call ambulance $AMBULANCE"), CrescentIcon, Red) { dial(context, AMBULANCE) }
             if (phase == Phase.SENT && help != null) {
                 GlassButton(if (resolving) tr("جارٍ الإرسال…", "Sending…") else tr("أنا بخير الآن", "I'm fine now"), icon = Icons.Filled.Check, enabled = !resolving) {
                     resolving = true

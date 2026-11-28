@@ -67,7 +67,10 @@ struct TodayScreen: View {
     let onHelp: () -> Void
     let onVitals: () -> Void
     @EnvironmentObject private var model: AppModel
+    @Environment(\.scenePhase) private var scenePhase
     @State private var now = Date()
+    /// جرعات حان موعدها: تومض بطاقتها وترنّ النغمة حتى تُسجَّل أو تمر 15 دقيقة
+    @State private var ringing: Set<String> = []
 
     private func take(_ log: DoseLog) {
         if model.isEarly(log, now: now) {
@@ -134,7 +137,7 @@ struct TodayScreen: View {
                         .padding(.bottom, 8)
                         ForEach(group) { log in
                             // هنا يسجّل الجرعة فقط؛ تفاصيل الدواء وتعديله في «أدويتي». الضغط على ✓ المضيئة يتراجع عن التسجيل
-                            DoseRow(log: log, state: doseState(log, now: now, takenOverride: model.isTaken(log)), onTake: { take(log) }, onUntake: { untake(log) })
+                            DoseRow(log: log, state: doseState(log, now: now, takenOverride: model.isTaken(log)), onTake: { take(log) }, onUntake: { untake(log) }, ringing: ringing.contains(log.id))
                         }
                     }
                 }
@@ -146,6 +149,16 @@ struct TodayScreen: View {
             }
         }
         .modifier(NowTicker(now: $now))
+        // يفحص كل ثانية، ويشغّل النغمة ما دامت جرعة ترنّ والتطبيق مفتوح
+        .task {
+            while !Task.isCancelled {
+                let moment = Date()
+                let next = Set(model.todayLogs.filter { DoseAlert.isRinging($0, now: moment, taken: model.isTaken($0)) }.map(\.id))
+                if next != ringing { ringing = next }
+                if !next.isEmpty && DoseAlert.soundOn && scenePhase == .active { DoseAlert.play() }
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+        }
     }
 }
 
@@ -299,6 +312,7 @@ struct DoseRow: View {
     let state: DoseState
     let onTake: (() -> Void)?
     var onUntake: (() -> Void)?
+    var ringing = false
 
     var body: some View {
         let time = Format.isoTime(log.scheduledAt)
@@ -320,7 +334,7 @@ struct DoseRow: View {
                         Text(tr("أحسنت · أخذتها", "Well done · taken") + (log.takenAt.map { " " + Format.isoTime($0) } ?? ""))
                             .style(13, .bold, Brand.mint).lineLimit(1)
                     } else {
-                        Text("\(Format.dose(log.doseAmount, log.doseUnit)) · \(stateText)").style(15, .regular, stateColor(state)).lineLimit(1)
+                        Text("\(Format.dose(log.doseAmount, log.doseUnit)) · \(stateText)").style(15, .regular, ringing ? Brand.warning : stateColor(state)).lineLimit(1)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -329,6 +343,7 @@ struct DoseRow: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .glass(radius: 24, highlight: state == .due ? 0.5 : 0.22)
+            .modifier(RingFlash(active: ringing))
         }
         .padding(.horizontal, 14)
         .padding(.bottom, 10)

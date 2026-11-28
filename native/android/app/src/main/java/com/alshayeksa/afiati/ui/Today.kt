@@ -1,5 +1,10 @@
 package com.alshayeksa.afiati.ui
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.RepeatMode
 import com.alshayeksa.afiati.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -113,6 +118,8 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
     val now = rememberNow()
     val logs = AppModel.todayLogs
     val medications = AppModel.medications
+    // جرعات حان موعدها: تومض بطاقتها وترنّ النغمة حتى تُسجَّل أو تمر 15 دقيقة
+    val ringing = rememberRinging(logs)
     var confirmEarly by remember { mutableStateOf<DoseLog?>(null) }
     var confirmUntake by remember { mutableStateOf<DoseLog?>(null) }
     val take: (DoseLog) -> Unit = { log -> if (AppModel.isEarly(log, now)) confirmEarly = log else AppModel.takeDose(log) }
@@ -157,6 +164,7 @@ fun TodayScreen(header: @Composable () -> Unit, onAdd: () -> Unit, onOpenMedicat
                 DoseRow(
                     log, doseState(log, now, AppModel.isTaken(log)), onTake = { take(log) },
                     onUntake = { if (AppModel.pendingTake?.id == log.id) AppModel.undoTake() else confirmUntake = log },
+                    ringing = log.id in ringing,
                 )
             }
         }
@@ -302,10 +310,17 @@ private fun LowStockCard(medication: Medication, onOpen: () -> Unit) {
 
 /** بطاقة جرعة: الدواء والوقت والحالة، وزر تسجيل كبير */
 @Composable
-fun DoseRow(log: DoseLog, state: DoseState, onTake: (() -> Unit)?, onUntake: (() -> Unit)? = null) {
+fun DoseRow(log: DoseLog, state: DoseState, onTake: (() -> Unit)?, onUntake: (() -> Unit)? = null, ringing: Boolean = false) {
+    // وميض التنبيه: إطار وخلفية يضيئان ويخفتان
+    val flash = if (ringing) {
+        val transition = rememberInfiniteTransition(label = "dose-alert")
+        val pulse by transition.animateFloat(0.15f, 1f, infiniteRepeatable(tween(550), RepeatMode.Reverse), label = "pulse")
+        Modifier.background(Brand.warning.copy(alpha = 0.22f * pulse), RoundedCornerShape(24.dp))
+            .border(2.5.dp, Brand.warning.copy(alpha = pulse), RoundedCornerShape(24.dp))
+    } else Modifier
     val (stateText, stateColor) = when (state) {
         DoseState.TAKEN -> (log.takenAt?.let { tr("أُخذت ${Format.isoTime(it)}", "Taken ${Format.isoTime(it)}") } ?: tr("أُخذت", "Taken")) to Brand.glow
-        DoseState.DUE -> tr("موعدها الآن", "Due now") to Brand.glow
+        DoseState.DUE -> tr("موعدها الآن", "Due now") to (if (ringing) Brand.warning else Brand.glow)
         DoseState.LATE -> tr("متأخرة", "Late") to Brand.warning
         DoseState.MISSED -> tr("فاتت", "Missed") to Brand.danger
         DoseState.UPCOMING -> runCatching { Duration.between(Instant.now(), Iso.parse(log.scheduledAt)).toMinutes() }.getOrNull()
@@ -315,6 +330,7 @@ fun DoseRow(log: DoseLog, state: DoseState, onTake: (() -> Unit)?, onUntake: (()
     Row(
         Modifier.padding(horizontal = 14.dp).padding(bottom = 10.dp).fillMaxWidth()
             .glass(RoundedCornerShape(24.dp), if (state == DoseState.DUE) 0.5f else 0.22f)
+            .then(flash)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
