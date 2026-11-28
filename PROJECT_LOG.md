@@ -448,9 +448,13 @@ Manual entry is currently faster and more reliable for the target flow.
   - Failed deliveries are retried by the cron.
   - Contract: `docs/partner-api.md`.
 - Stopping the service now asks for a confirmation tick.
+- Abuse limits (the server address is public by nature, so it is protected by limits, not by hiding it):
+  - New accounts: 30 per network per hour (D1 counter keyed by a hash of the IP). It is generous because carriers share addresses.
+  - Requests: 120 per device per minute (Workers rate-limiting binding `DEVICE_LIMIT`, in memory, no database writes). Excess gets 429 `rate_limited`.
+  - Old rate-limit counters are pruned hourly by the cron.
 
 ### Verification
-- Local worker: partners and control 47/47, cron retry 3/3. Regression passed: control 23/23, undo, sync and family.
+- Local worker: partners and control 47/47, cron retry 3/3, limits 6/6. Regression passed: control 23/23, undo, sync and family.
 - Android build and unit tests passed. Installed on the Samsung, where the app reached the server.
 - The iOS build runs on CI.
 - Production: not deployed yet. This needs migration 0007 and a deploy.

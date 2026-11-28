@@ -12,6 +12,9 @@
     "ACCESS_TEAM_DOMAIN": "khabir-alshayeksa.cloudflareaccess.com",
     "ACCESS_AUD": "d65a5d86557fe966e0c9cb29a1f490602869e2d5cfadbafdac0ef482a1d85f95"
   },
+  // Requests per device per minute (Workers rate limiting: in memory, no database writes, free).
+  // An app normally makes a few requests a minute; this only stops scripts hammering the server.
+  "ratelimits": [{ "name": "DEVICE_LIMIT", "namespace_id": "1001", "simple": { "limit": 120, "period": 60 } }],
   // Every minute: unanswered help, missed doses, low stock (free plan allows cron triggers).
   "triggers": { "crons": ["* * * * *"] },
   "d1_databases": [

@@ -6,6 +6,10 @@
 //   Authorization: Bearer <deviceId>.<secret>
 import { parseGender } from './arabic';
 import { HttpError, nowIso, optionalText, readJson, requireText, requireUuid } from './http';
+import { enforceRateLimit } from './rateLimit';
+
+/** New accounts per network per hour. Generous because mobile carriers put many phones behind one address. */
+const REGISTER_PER_HOUR = 30;
 
 export type AuthContext = { deviceId: string; profileId: string };
 
@@ -18,6 +22,13 @@ export async function register(request: Request, env: Env) {
   const phone = requireText(body.phone, 'phone', 20);
   const email = optionalText(body.email, 'email', 200);
   const platform = typeof body.platform === 'string' && PLATFORMS.has(body.platform) ? body.platform : null;
+
+  // Stops scripts from creating accounts in bulk. The address is kept only as a hash, inside the counter key.
+  const ip = request.headers.get('CF-Connecting-IP');
+  if (ip) {
+    const ipHash = (await sha256Hex(`afiati-register:${ip}`)).slice(0, 24);
+    await enforceRateLimit(env, `register:${ipHash}`, REGISTER_PER_HOUR, 60 * 60, 'too many new accounts from this network, try again later');
+  }
 
   // A profile id that already exists cannot be claimed by registering again;
   // otherwise anyone who learned the id could take over that patient's data.
@@ -78,6 +89,10 @@ export async function authenticate(request: Request, env: Env): Promise<AuthCont
       env.DB.prepare('INSERT OR IGNORE INTO device_days (day, device_id) VALUES (?, ?)').bind(now.slice(0, 10), deviceId),
     ]);
   }
+
+  // Requests per device per minute (in memory, see wrangler.jsonc)
+  const limiter = (env as Env & { DEVICE_LIMIT?: RateLimit }).DEVICE_LIMIT;
+  if (limiter && !(await limiter.limit({ key: deviceId })).success) throw new HttpError(429, 'rate_limited', 'too many requests');
 
   return { deviceId, profileId: device.profile_id };
 }

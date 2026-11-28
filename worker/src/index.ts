@@ -18,6 +18,7 @@ import {
 import { HttpError, errorResponse, json, nowIso, optionalText, readJson, requireText, requireUuid } from './http';
 import { pull, push } from './sync';
 import { partnerRoute, retryDispatches } from './partners';
+import { pruneRateLimits } from './rateLimit';
 
 export default {
   async fetch(request, env, ctx): Promise<Response> {
@@ -34,7 +35,11 @@ export default {
     const waitUntil = (promise: Promise<unknown>) => ctx.waitUntil(promise);
     // Service paused from /forceupdate: no scheduled family alerts either
     if (!(await readSettings(env)).serviceOn) return;
-    const jobs = { help: escalateHelp, missed: alertMissedDoses, stock: alertLowStock, partners: retryDispatches };
+    const jobs: Record<string, (env: Env, waitUntil: (promise: Promise<unknown>) => void) => Promise<unknown>> = {
+      help: escalateHelp, missed: alertMissedDoses, stock: alertLowStock, partners: retryDispatches,
+    };
+    // Once an hour: old rate-limit counters
+    if (new Date().getUTCMinutes() === 0) jobs.prune = pruneRateLimits;
     for (const [name, job] of Object.entries(jobs)) {
       try {
         await job(env, waitUntil);

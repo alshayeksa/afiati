@@ -1,5 +1,10 @@
 import { HttpError } from './http';
 
+/** Removes counters whose window ended more than two days ago (run hourly by the cron). */
+export async function pruneRateLimits(env: Env) {
+  await env.DB.prepare('DELETE FROM rate_limits WHERE window_start < ?').bind(Math.floor(Date.now() / 1000) - 2 * 86_400).run();
+}
+
 /** Counts one hit for `key`; throws 429 once more than `limit` hits land in the current window. */
 export async function enforceRateLimit(env: Env, key: string, limit: number, windowSeconds: number, message: string) {
   const now = Math.floor(Date.now() / 1000);
