@@ -19,6 +19,9 @@ enum Api {
     /// عنوان الخادم الحالي: من صفحة التحكم (يُحفظ في الجوال)، أو المدمج
     static var baseURL: String {
         if let saved = UserDefaults.standard.string(forKey: urlKey), saved.hasPrefix("https://") { return saved }
+        #if DEBUG
+        if let saved = UserDefaults.standard.string(forKey: urlKey), DemoLaunch.isLocalServer(saved) { return saved }
+        #endif
         return defaultURL
     }
 

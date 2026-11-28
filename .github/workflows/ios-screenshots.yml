@@ -1,0 +1,89 @@
+# App Store screenshots from the real iPhone app (manual only).
+# A local copy of the server runs on the Mac with demo families (native/ios/Screenshots/seed.mjs),
+# then AfiatiUITests walks the app on the largest iPhone simulator, in Arabic and English.
+# Result: the "app-store-screenshots" artifact (PNG at the simulator's native size). No real user data.
+name: iOS App Store screenshots
+
+on:
+  workflow_dispatch:
+
+jobs:
+  screenshots:
+    runs-on: xcode-27
+    timeout-minutes: 45
+    env:
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Start a local test server
+        working-directory: worker
+        run: |
+          npm ci
+          npx wrangler d1 migrations apply afiati --local
+          nohup npx wrangler dev --local --port 8798 > ../wrangler.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8798/health && break; sleep 2; done
+          curl -sf http://127.0.0.1:8798/health
+
+      - name: Create demo families
+        run: node native/ios/Screenshots/seed.mjs http://127.0.0.1:8798 > seed.json
+
+      - name: Generate Xcode project
+        working-directory: native/ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Prepare the simulator
+        id: sim
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)['devices']
+          c=[x for k,v in d.items() if 'iOS' in k for x in v if 'Pro Max' in x['name']]
+          print(c[-1]['udid'] if c else '')")
+          xcrun simctl list devices available | grep "$udid"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl ui "$udid" appearance dark
+          # The status bar shows the same Riyadh time the app's doses are built around
+          time=$(TZ=Asia/Riyadh date +%H:%M)
+          xcrun simctl status_bar "$udid" override --time "$time" --batteryState charged --batteryLevel 100 --cellularMode active --cellularBars 4 --wifiBars 3
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
+      - name: Capture screenshots
+        working-directory: native/ios
+        run: |
+          set -o pipefail
+          export TEST_RUNNER_SEED_JSON="$(cat ../../seed.json)"
+          xcodebuild test -project Afiati.xcodeproj -scheme AfiatiScreenshots \
+            -destination "id=${{ steps.sim.outputs.udid }}" -configuration Debug \
+            -resultBundlePath build/screens.xcresult CODE_SIGNING_ALLOWED=NO 2>&1 | tee screens.log | xcbeautify --quiet
+
+      - name: Collect
+        if: always()
+        run: |
+          mkdir -p shots
+          cp ~/afiati-shots/*.png shots/ 2>/dev/null || true
+          ls -la shots
+          python3 -c "
+          import struct,glob
+          for f in sorted(glob.glob('shots/*.png')):
+              w,h=struct.unpack('>II',open(f,'rb').read()[16:24]); print(f,w,h)"
+
+      - name: Show failures
+        if: failure()
+        run: |
+          grep -h -E "error:|failed|XCTAssert" native/ios/screens.log | sort -u | head -60 || true
+          tail -40 wrangler.log || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: app-store-screenshots
+          path: shots/*.png
+          retention-days: 30

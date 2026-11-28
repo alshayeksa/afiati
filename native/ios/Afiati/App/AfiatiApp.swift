@@ -129,6 +129,9 @@ struct AfiatiApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        #if DEBUG
+        DemoLaunch.apply()
+        #endif
         // عناوين شريط التنقل والقوائم من UIKit بخط تجوال
         if let font = UIFont(name: "Tajawal-Medium", size: 17) {
             UINavigationBar.appearance().titleTextAttributes = [.font: font]

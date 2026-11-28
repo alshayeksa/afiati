@@ -44,6 +44,9 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
+        # Only lets Debug builds reach a local test server (App Store screenshots); public servers stay HTTPS-only
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
         ITSAppUsesNonExemptEncryption: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -64,6 +67,22 @@ targets:
           - Tajawal-Medium.ttf
           - Tajawal-Bold.ttf
 
+  # App Store screenshots: walks the app in a demo account on a local test server (ios-screenshots.yml).
+  # Not part of the Afiati scheme, so the normal build never runs it.
+  AfiatiUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - AfiatiUITests
+    dependencies:
+      - target: Afiati
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.alshaye.afiati.uitests
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Afiati
+
   # اختبارات المنطق: معرّفات الجرعات (تطابق الخادم وأندرويد)، المواعيد، النبض، المدى الطبيعي
   AfiatiTests:
     type: bundle.unit-test
@@ -79,3 +98,14 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/Afiati.app/Afiati
         BUNDLE_LOADER: $(TEST_HOST)
+
+schemes:
+  AfiatiScreenshots:
+    build:
+      targets:
+        Afiati: all
+        AfiatiUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - AfiatiUITests
